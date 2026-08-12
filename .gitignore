@@ -1,3 +1,4 @@
+# ===================== Java / SpringBoot 原有配置 =====================
 # Compiled class file
 *.class
 
@@ -22,3 +23,26 @@
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
 replay_pid*
+
+# ===================== Vue3 / Vite 前端追加配置 =====================
+# 前端依赖包（核心！屏蔽node_modules警告、防止误提交）
+node_modules/
+
+# Vite打包产物
+dist/
+
+# 环境变量文件
+.env
+.env.local
+.env.development
+.env.production
+
+# IDE 缓存
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 操作系统垃圾文件
+.DS_Store
+Thumbs.db
