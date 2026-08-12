@@ -47,3 +47,4 @@
     - 前端开发：Vue3 + Vite，DeepSeek+CodeBuddy 辅助编程，在 CodeBuddy 窗口描述功能需求，自动生成组件、页面与交互代码；
     - 后端开发：SpringBoot + MyBatis-Plus，DeepSeek+CodeBuddy 辅助编写 Controller、Service、Mapper 等业务代码；
   - 测试阶段：DeepSeek 根据项目功能生成测试用例，再根据测试用例生成 Playwright 框架的测试脚本，运行测试。
+![项目架构](https://github.com/LiuZhengYu2421/diab_health_sys01/blob/main/img/%E7%B3%96%E5%B0%BF%E7%97%85%E9%A1%B9%E7%9B%AE%E6%9E%B6%E6%9E%84%E5%9B%BE.png?raw=true)
