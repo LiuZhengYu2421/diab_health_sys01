@@ -82,6 +82,16 @@
             </div>
             <i class="fa-solid fa-angle-right menu-arrow"></i>
           </div>
+
+          <!-- 管理后台（仅管理员可见） -->
+          <div v-if="userStore.isAdmin" class="menu-item menu-admin"
+               :class="{ active: isMenuActive(adminMenu) }" @click="go(adminMenu)">
+            <div class="menu-left">
+              <i :class="adminMenu.icon"></i>
+              <span class="menu-title">{{ adminMenu.title }}</span>
+            </div>
+            <i class="fa-solid fa-angle-right menu-arrow"></i>
+          </div>
         </div>
       </aside>
 
@@ -142,6 +152,9 @@ const singleMenus = [
   { title: '生活建议', icon: 'fa-solid fa-heart-pulse', path: '/lifeadvice' },
   { title: 'AI助手', icon: 'fa-solid fa-robot', path: '/ai' }
 ]
+
+// 管理后台入口（仅 admin 角色可见，模板中用 v-if="userStore.isAdmin" 控制）
+const adminMenu = { title: '管理后台', icon: 'fa-solid fa-shield-halved', path: '/admin' }
 
 function go(item) {
   dropdownOpen.value = false

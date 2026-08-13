@@ -1,7 +1,5 @@
 /**
  * 认证接口 - 登录 / 注册 / 退出 / 用户信息
- * ============================================
- * 本模块已彻底脱离 Dify，改为对接自建后端（SpringBoot）。
  *
  * 双模式设计：
  *  1. Mock 模式（默认，VITE_USE_MOCK=true）
@@ -31,12 +29,13 @@ const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true'
 // ========== Mock 用户库（仅 Mock 模式使用） ==========
 const MOCK_USERS_KEY = 'zhitang_mock_users'
 
-/** 演示账号（首次使用时自动预置，便于快速体验登录） */
+/** 演示账号（首次使用时自动预置，便于快速体验登录，role=admin 可进入管理后台） */
 const DEFAULT_MOCK_USER = {
   id: 1,
   username: 'admin',
   password: 'YWRtaW4xMjM=', // admin123（base64 编码）
   nickname: '演示用户',
+  role: 'admin',
   desc: '智慧控糖 · 健康生活',
   createdAt: '2026-08-12'
 }
@@ -47,6 +46,16 @@ function getMockUsers() {
     if (list.length === 0) {
       list.push(DEFAULT_MOCK_USER)
       saveMockUsers(list)
+    } else {
+      // 兼容旧缓存：为缺少 role 的用户补齐默认角色
+      let changed = false
+      list.forEach((u) => {
+        if (!u.role) {
+          u.role = u.username === 'admin' ? 'admin' : 'user'
+          changed = true
+        }
+      })
+      if (changed) saveMockUsers(list)
     }
     return list
   } catch (e) {
@@ -117,6 +126,7 @@ function mockRegister({ username, password, nickname }) {
       username,
       password: encodeSecret(password),
       nickname: nickname || username,
+      role: 'user',
       desc: '智慧控糖 · 健康生活',
       createdAt: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
     }

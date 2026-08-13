@@ -18,6 +18,7 @@
           <div class="profile-name-row">
             <h2 class="profile-name">{{ userStore.displayName }}</h2>
             <span class="vip-tag">健康会员</span>
+            <span v-if="userStore.isAdmin" class="admin-tag"><i class="fa-solid fa-shield-halved"></i> 管理员</span>
           </div>
           <p class="profile-desc">{{ userStore.displayDesc }}</p>
           <div class="profile-tags">
@@ -373,5 +374,19 @@ function toggleFaq(idx) {
 .today-text {
   color: #2563eb;
   font-weight: 600;
+}
+
+/* 管理员角色标识 */
+.admin-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #fff;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  box-shadow: 0 2px 6px rgba(217, 119, 6, 0.35);
 }
 </style>

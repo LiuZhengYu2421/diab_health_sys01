@@ -192,7 +192,10 @@ async function handleLogin() {
     const redirect = route.query.redirect
     router.replace(typeof redirect === 'string' ? redirect : '/team')
   } catch (err) {
-    showFloatingAlert(err.message || '登录失败，请稍后重试', 'error')
+    // 已在请求拦截器统一提示的错误（如 400/401/409）不再重复弹窗
+    if (!err.handled) {
+      showFloatingAlert(err.message || '登录失败，请稍后重试', 'error')
+    }
   } finally {
     loading.value = false
   }
@@ -216,7 +219,10 @@ async function handleRegister() {
     showFloatingAlert('注册成功，欢迎加入智糖健康！', 'success')
     router.replace('/team')
   } catch (err) {
-    showFloatingAlert(err.message || '注册失败，请稍后重试', 'error')
+    // 已在请求拦截器统一提示的错误（如 400/409 用户名已注册）不再重复弹窗
+    if (!err.handled) {
+      showFloatingAlert(err.message || '注册失败，请稍后重试', 'error')
+    }
   } finally {
     loading.value = false
   }

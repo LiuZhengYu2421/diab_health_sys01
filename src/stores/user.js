@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { login as apiLogin, register as apiRegister, logout as apiLogout, getUserInfo as apiGetUserInfo } from '@/api/auth'
 import { getToken, setToken, setUser, getUser, clearAuth } from '@/utils/storage'
+import { getTokenRole } from '@/utils/token'
 
 export const useUserStore = defineStore('user', {
   state: () => ({
@@ -10,6 +11,8 @@ export const useUserStore = defineStore('user', {
 
   getters: {
     isLoggedIn: (state) => !!state.token,
+    /** 是否管理员（控制管理后台入口与按钮显隐）：优先取 userInfo，缺失时从 token 解码兜底 */
+    isAdmin: (state) => state.userInfo.role === 'admin' || getTokenRole(state.token) === 'admin',
     displayName: (state) =>
       state.userInfo.nickname ||
       state.userInfo.username ||
