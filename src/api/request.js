@@ -48,8 +48,36 @@ service.interceptors.response.use(
         return res.data
       }
       if (res.code === 401) {
+        // 登录/注册接口的 401 表示「用户名或密码错误」，属业务错误，不触发会话过期逻辑
+        if (isAuthRequest(response.config)) {
+          const authErr = new Error(res.message || '用户名或密码错误')
+          authErr.handled = true
+          return Promise.reject(authErr)
+        }
         handleUnauthorized()
-        return Promise.reject(new Error(res.message || '登录已过期，请重新登录'))
+        const expiredErr = new Error(res.message || '登录已过期，请重新登录')
+        expiredErr.handled = true
+        return Promise.reject(expiredErr)
+      }
+      if (res.code === 403) {
+        // 后端角色拦截器（/admin/** 非管理员）返回 HTTP 200 + body code=403
+        showFloatingAlert(res.message || '没有权限执行该操作', 'error')
+        const forbiddenErr = new Error(res.message || '没有权限执行该操作')
+        forbiddenErr.handled = true
+        return Promise.reject(forbiddenErr)
+      }
+      if (res.code === 400 || res.code === 404 || res.code === 409) {
+        // 参数校验失败 / 资源不存在 / 冲突（如用户名已注册）
+        showFloatingAlert(res.message || '请求参数错误', 'error')
+        const bizErr = new Error(res.message || '请求失败')
+        bizErr.handled = true
+        return Promise.reject(bizErr)
+      }
+      if (res.code === 500) {
+        showFloatingAlert('服务器异常，请稍后再试', 'error')
+        const serverErr = new Error('服务器异常，请稍后再试')
+        serverErr.handled = true
+        return Promise.reject(serverErr)
       }
       return Promise.reject(new Error(res.message || '请求失败'))
     }
@@ -58,20 +86,46 @@ service.interceptors.response.use(
   },
   (error) => {
     const status = error.response?.status
+    const res = error.response?.data
+    // 透传后端返回的业务错误信息（如参数校验错误），供页面 catch 展示
+    if (res && typeof res === 'object' && res.message) {
+      error.message = res.message
+    }
     if (status === 401) {
-      handleUnauthorized()
+      // 登录/注册接口的 401 表示用户名或密码错误，不触发会话过期逻辑
+      if (isAuthRequest(error.config)) {
+        showFloatingAlert(error.message || '用户名或密码错误', 'error')
+        error.handled = true
+      } else {
+        handleUnauthorized()
+        error.handled = true
+      }
     } else if (status === 403) {
-      showFloatingAlert('没有权限执行该操作', 'error')
+      showFloatingAlert(error.message || '没有权限执行该操作', 'error')
+      error.handled = true
+    } else if (status === 400 || status === 404 || status === 409) {
+      // 参数校验失败 / 资源不存在 / 冲突（如用户名已注册）
+      showFloatingAlert(error.message || '请求参数错误', 'error')
+      error.handled = true
     } else if (status === 500) {
       showFloatingAlert('服务器异常，请稍后再试', 'error')
+      error.handled = true
     } else if (error.code === 'ECONNABORTED') {
       showFloatingAlert('请求超时，请检查网络', 'error')
+      error.handled = true
     } else if (!error.response) {
       showFloatingAlert('无法连接服务器，请检查后端是否启动', 'error')
+      error.handled = true
     }
     return Promise.reject(error)
   }
 )
+
+// 判断是否为认证类接口（登录/注册），其 401/400 等为业务错误而非会话过期
+function isAuthRequest(config) {
+  const url = (config && config.url) || ''
+  return /\/auth\/(login|register)$/.test(url)
+}
 
 function handleUnauthorized() {
   clearAuth()

@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { getToken } from '@/utils/storage'
+import { getToken, getUser } from '@/utils/storage'
+import { getTokenRole } from '@/utils/token'
 
 const routes = [
   {
@@ -48,6 +49,12 @@ const routes = [
         name: 'ai',
         component: () => import('@/views/PlaceholderView.vue'),
         meta: { title: 'AI 助手', placeholder: true }
+      },
+      {
+        path: 'admin',
+        name: 'admin',
+        component: () => import('@/views/AdminView.vue'),
+        meta: { title: '管理后台', requiresAdmin: true }
       }
     ]
   },
@@ -62,12 +69,16 @@ const router = createRouter({
   routes
 })
 
-// 全局前置守卫：未登录跳转登录页
+// 全局前置守卫：未登录跳登录页；管理页校验 role=admin
 router.beforeEach((to, from, next) => {
   const token = getToken()
+  const userInfo = getUser() || {}
   if (!to.meta.public && !token) {
     next({ path: '/login', query: { redirect: to.fullPath } })
   } else if (to.path === '/login' && token) {
+    next({ path: '/team' })
+  } else if (to.meta.requiresAdmin && userInfo.role !== 'admin' && getTokenRole(token) !== 'admin') {
+    // 非管理员访问管理后台：跳回首页（userInfo 缺失时从 token 解码 role 兜底）
     next({ path: '/team' })
   } else {
     next()
