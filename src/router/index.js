@@ -49,14 +49,15 @@ const routes = [
         name: 'ai',
         component: () => import('@/views/PlaceholderView.vue'),
         meta: { title: 'AI 助手', placeholder: true }
-      },
-      {
-        path: 'admin',
-        name: 'admin',
-        component: () => import('@/views/AdminView.vue'),
-        meta: { title: '管理后台', requiresAdmin: true }
       }
     ]
+  },
+  {
+    // 管理后台：独立顶级路由，自带后台布局，与普通用户前台界面区分
+    path: '/admin',
+    name: 'admin',
+    component: () => import('@/views/AdminView.vue'),
+    meta: { title: '管理后台', requiresAdmin: true }
   },
   {
     path: '/:pathMatch(.*)*',
@@ -76,7 +77,9 @@ router.beforeEach((to, from, next) => {
   if (!to.meta.public && !token) {
     next({ path: '/login', query: { redirect: to.fullPath } })
   } else if (to.path === '/login' && token) {
-    next({ path: '/team' })
+    // 已登录访问登录页：管理员直接进入管理后台，普通用户进入前台首页
+    const isAdmin = userInfo.role === 'admin' || getTokenRole(token) === 'admin'
+    next({ path: isAdmin ? '/admin' : '/team' })
   } else if (to.meta.requiresAdmin && userInfo.role !== 'admin' && getTokenRole(token) !== 'admin') {
     // 非管理员访问管理后台：跳回首页（userInfo 缺失时从 token 解码 role 兜底）
     next({ path: '/team' })

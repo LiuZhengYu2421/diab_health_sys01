@@ -2,10 +2,10 @@
   <div class="mine-page">
     <!-- ========== 个人信息面板（默认） ========== -->
     <section v-if="activePanel === 'profile'" class="panel">
-      <!-- 演示数据提示 -->
+      <!-- 数据提示 -->
       <div class="demo-banner">
         <i class="fa-solid fa-circle-info"></i>
-        当前展示为<b>演示数据</b>，正式对接后端后将自动同步您的真实健康档案
+        个人资料与后端实时同步，健康档案部分暂为演示数据
       </div>
 
       <!-- 个人资料卡 -->
@@ -23,7 +23,7 @@
           <p class="profile-desc">{{ userStore.displayDesc }}</p>
           <div class="profile-tags">
             <span class="profile-tag"><i class="fa-solid fa-heart-pulse"></i> 2型糖尿病</span>
-            <span class="profile-tag"><i class="fa-solid fa-calendar-days"></i> 加入 365 天</span>
+            <span class="profile-tag"><i class="fa-solid fa-calendar-days"></i> {{ joinDaysText }}</span>
             <span class="profile-tag"><i class="fa-solid fa-fire"></i> 连续打卡 12 天</span>
           </div>
         </div>
@@ -51,11 +51,23 @@
           <div class="info-list">
             <div class="info-item">
               <span class="info-label"><i class="fa-solid fa-user"></i> 用户名</span>
+              <span class="info-value">{{ userStore.userInfo.username || '-' }}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label"><i class="fa-solid fa-id-card"></i> 昵称</span>
               <span class="info-value">{{ userStore.displayName }}</span>
             </div>
             <div class="info-item">
-              <span class="info-label"><i class="fa-solid fa-id-card"></i> 真实姓名</span>
-              <span class="info-value">赵晓峰</span>
+              <span class="info-label"><i class="fa-solid fa-note-sticky"></i> 个人简介</span>
+              <span class="info-value">{{ userStore.displayDesc }}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label"><i class="fa-solid fa-calendar-days"></i> 注册时间</span>
+              <span class="info-value">{{ userStore.userInfo.createdAt || '-' }}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label"><i class="fa-solid fa-venus-mars"></i> 性别</span>
+              <span class="info-value">男</span>
             </div>
             <div class="info-item">
               <span class="info-label"><i class="fa-solid fa-venus-mars"></i> 性别</span>
@@ -265,6 +277,74 @@
     </section>
 
     <div class="content-tip">更多功能正在建设中，敬请期待</div>
+
+    <!-- ========== 编辑个人资料弹窗 ========== -->
+    <div v-if="editModalOpen" class="modal-mask" @click.self="closeEditModal">
+      <div class="modal-box">
+        <div class="modal-head">
+          <h3><i class="fa-solid fa-address-card"></i> 编辑个人资料</h3>
+          <i class="fa-solid fa-xmark modal-close" @click="closeEditModal"></i>
+        </div>
+        <div class="modal-body">
+          <div class="form-row">
+            <label class="form-label">头像</label>
+            <div class="avatar-picker">
+              <img v-for="a in avatarOptions" :key="a"
+                   :src="a" :class="{ selected: editForm.avatar === a }"
+                   @click="editForm.avatar = a">
+              <img :src="editForm.avatar" class="avatar-current" alt="当前头像">
+            </div>
+            <input v-model="editForm.avatar" class="form-input" placeholder="或粘贴头像图片地址">
+          </div>
+          <div class="form-row">
+            <label class="form-label">昵称</label>
+            <input v-model="editForm.nickname" class="form-input" placeholder="请输入昵称">
+          </div>
+          <div class="form-row">
+            <label class="form-label">个人简介</label>
+            <textarea v-model="editForm.desc" class="form-textarea" rows="3"
+                      placeholder="一句话介绍自己"></textarea>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-cancel" @click="closeEditModal">取消</button>
+          <button class="btn btn-primary" :disabled="editSaving" @click="onSaveProfile">
+            {{ editSaving ? '保存中...' : '保存' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== 修改密码弹窗 ========== -->
+    <div v-if="pwdModalOpen" class="modal-mask" @click.self="closePwdModal">
+      <div class="modal-box">
+        <div class="modal-head">
+          <h3><i class="fa-solid fa-key"></i> 修改登录密码</h3>
+          <i class="fa-solid fa-xmark modal-close" @click="closePwdModal"></i>
+        </div>
+        <div class="modal-body">
+          <div class="form-row">
+            <label class="form-label required">原密码</label>
+            <input v-model="pwdForm.oldPassword" type="password" class="form-input" placeholder="请输入原密码">
+          </div>
+          <div class="form-row">
+            <label class="form-label required">新密码</label>
+            <input v-model="pwdForm.newPassword" type="password" class="form-input"
+                   placeholder="6-32 位，建议字母+数字组合">
+          </div>
+          <div class="form-row">
+            <label class="form-label required">确认新密码</label>
+            <input v-model="pwdForm.confirmPassword" type="password" class="form-input" placeholder="请再次输入新密码">
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-cancel" @click="closePwdModal">取消</button>
+          <button class="btn btn-primary" :disabled="pwdSaving" @click="onChangePassword">
+            {{ pwdSaving ? '提交中...' : '确认修改' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -325,17 +405,125 @@ const faqs = [
   { icon: 'fa-solid fa-headset', question: '如何联系健康管理师？', answer: '可在平台「AI智能管理平台」发起在线咨询，或拨打客服热线 400-000-0000 获取人工服务。' }
 ]
 
+// ---------- 编辑资料弹窗 ----------
+const editModalOpen = ref(false)
+const editSaving = ref(false)
+const editForm = ref({ avatar: '', nickname: '', desc: '' })
+
+const avatarOptions = [
+  '/img/user_icon.png',
+  '/img/user.jpg',
+  '/img/user1.png',
+  '/img/user2.png',
+  '/img/logo.png'
+]
+
+function openEditModal() {
+  editForm.value = {
+    avatar: userStore.avatar,
+    nickname: userStore.userInfo.nickname || '',
+    desc: userStore.userInfo.desc || ''
+  }
+  editModalOpen.value = true
+}
+
+function closeEditModal() {
+  if (editSaving.value) return
+  editModalOpen.value = false
+}
+
+async function onSaveProfile() {
+  const nickname = editForm.value.nickname?.trim()
+  if (!nickname) {
+    showFloatingAlert('昵称不能为空', 'warning')
+    return
+  }
+  editSaving.value = true
+  try {
+    await userStore.updateProfile({
+      nickname,
+      avatar: editForm.value.avatar,
+      desc: editForm.value.desc?.trim()
+    })
+    showFloatingAlert('个人资料已更新', 'success')
+    editModalOpen.value = false
+  } catch (e) {
+    showFloatingAlert(e.message || '保存失败，请稍后再试', 'error')
+  } finally {
+    editSaving.value = false
+  }
+}
+
+// ---------- 修改密码弹窗 ----------
+const pwdModalOpen = ref(false)
+const pwdSaving = ref(false)
+const pwdForm = ref({ oldPassword: '', newPassword: '', confirmPassword: '' })
+
+function openPwdModal() {
+  pwdForm.value = { oldPassword: '', newPassword: '', confirmPassword: '' }
+  pwdModalOpen.value = true
+}
+
+function closePwdModal() {
+  if (pwdSaving.value) return
+  pwdModalOpen.value = false
+}
+
+async function onChangePassword() {
+  const { oldPassword, newPassword, confirmPassword } = pwdForm.value
+  if (!oldPassword) {
+    showFloatingAlert('请输入原密码', 'warning')
+    return
+  }
+  if (!newPassword || newPassword.length < 6 || newPassword.length > 32) {
+    showFloatingAlert('新密码长度需为 6-32 位', 'warning')
+    return
+  }
+  if (newPassword !== confirmPassword) {
+    showFloatingAlert('两次输入的新密码不一致', 'warning')
+    return
+  }
+  if (newPassword === oldPassword) {
+    showFloatingAlert('新密码不能与原密码相同', 'warning')
+    return
+  }
+  pwdSaving.value = true
+  try {
+    await userStore.changePassword({ oldPassword, newPassword })
+    showFloatingAlert('密码修改成功，下次登录请使用新密码', 'success')
+    pwdModalOpen.value = false
+  } catch (e) {
+    showFloatingAlert(e.message || '修改失败，请稍后再试', 'error')
+  } finally {
+    pwdSaving.value = false
+  }
+}
+
 function handleEditProfile() {
-  showFloatingAlert('个人信息编辑功能建设中，敬请期待~', 'info')
+  openEditModal()
 }
 
 function handleAccountAction(title) {
+  if (title === '登录密码') {
+    openPwdModal()
+    return
+  }
   if (title === '退出登录') {
     showFloatingAlert('请在右上角点击头像，选择退出登录', 'info')
     return
   }
   showFloatingAlert(title + '设置功能建设中，敬请期待~', 'info')
 }
+
+// 加入天数（基于注册时间，无数据时回退到默认文案）
+const joinDaysText = computed(() => {
+  const created = userStore.userInfo.createdAt
+  if (!created) return '加入平台'
+  const start = new Date(created.replace(/-/g, '/')).getTime()
+  if (Number.isNaN(start)) return '加入平台'
+  const days = Math.max(0, Math.floor((Date.now() - start) / 86400000))
+  return `加入 ${days + 1} 天`
+})
 
 function openAdvice(advice) {
   showFloatingAlert('正在打开《' + advice.title + '》…', 'info')
@@ -388,5 +576,164 @@ function toggleFaq(idx) {
   color: #fff;
   background: linear-gradient(135deg, #f59e0b, #d97706);
   box-shadow: 0 2px 6px rgba(217, 119, 6, 0.35);
+}
+
+/* ========== 弹窗 ========== */
+.modal-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(15, 23, 42, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(2px);
+}
+.modal-box {
+  width: 480px;
+  max-width: 92vw;
+  max-height: 88vh;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.3);
+  display: flex;
+  flex-direction: column;
+  animation: modalIn 0.2s ease;
+  overflow: hidden;
+}
+@keyframes modalIn {
+  from { opacity: 0; transform: translateY(16px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #eef2f7;
+}
+.modal-head h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #1e293b;
+}
+.modal-close {
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px;
+  transition: color 0.2s;
+}
+.modal-close:hover {
+  color: #ef4444;
+}
+.modal-body {
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+}
+.form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.form-label {
+  font-size: 13px;
+  color: #475569;
+  font-weight: 500;
+}
+.form-label.required::before {
+  content: '* ';
+  color: #ef4444;
+}
+.form-input,
+.form-textarea {
+  padding: 9px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 13px;
+  outline: none;
+  color: #334155;
+  transition: border-color 0.2s;
+  font-family: inherit;
+  width: 100%;
+  box-sizing: border-box;
+}
+.form-input:focus,
+.form-textarea:focus {
+  border-color: #2563eb;
+}
+.form-textarea {
+  resize: vertical;
+  min-height: 72px;
+}
+.avatar-picker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.avatar-picker img {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  object-fit: cover;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all 0.2s;
+}
+.avatar-picker img:hover {
+  transform: scale(1.06);
+}
+.avatar-picker img.selected {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+}
+.avatar-picker .avatar-current {
+  margin-left: auto;
+  border: 2px dashed #cbd5e1;
+  cursor: default;
+}
+.avatar-picker .avatar-current:hover {
+  transform: none;
+}
+.modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 20px;
+  border-top: 1px solid #eef2f7;
+}
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 18px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-primary {
+  background: #2563eb;
+  color: #fff;
+}
+.btn-primary:hover {
+  background: #1d4ed8;
+}
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.btn-cancel {
+  background: #f1f5f9;
+  color: #475569;
+}
+.btn-cancel:hover {
+  background: #e2e8f0;
 }
 </style>

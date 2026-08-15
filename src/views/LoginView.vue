@@ -177,6 +177,9 @@ const regForm = reactive({
   agree: false
 })
 
+// 与后端 USERNAME_PATTERN 保持一致：3-20 位字母、数字、下划线、中文或连字符
+const USERNAME_PATTERN = /^[\w\u4e00-\u9fa5-]{3,20}$/
+
 function switchTab(tab) {
   activeTab.value = tab
 }
@@ -189,6 +192,11 @@ async function handleLogin() {
     await userStore.login({ username: loginForm.username, password: loginForm.password })
     rememberCredentials()
     showFloatingAlert('登录成功，欢迎回来！', 'success')
+    // 管理员登录后直接进入管理后台，无需再通过前台界面跳转
+    if (userStore.isAdmin) {
+      router.replace('/admin')
+      return
+    }
     const redirect = route.query.redirect
     router.replace(typeof redirect === 'string' ? redirect : '/team')
   } catch (err) {
@@ -203,9 +211,13 @@ async function handleLogin() {
 
 async function handleRegister() {
   if (!regForm.username) return showFloatingAlert('请输入用户名', 'warning')
-  if (regForm.username.length < 3) return showFloatingAlert('用户名至少 3 个字符', 'warning')
+  if (!USERNAME_PATTERN.test(regForm.username)) {
+    return showFloatingAlert('用户名需为 3-20 位字母、数字、下划线或中文', 'warning')
+  }
   if (!regForm.password) return showFloatingAlert('请输入密码', 'warning')
-  if (regForm.password.length < 6) return showFloatingAlert('密码至少 6 位', 'warning')
+  if (regForm.password.length < 6 || regForm.password.length > 32) {
+    return showFloatingAlert('密码长度需为 6-32 位', 'warning')
+  }
   if (regForm.password !== regForm.confirmPassword) return showFloatingAlert('两次输入的密码不一致', 'error')
   if (!regForm.agree) return showFloatingAlert('请先阅读并同意用户服务协议', 'warning')
 
