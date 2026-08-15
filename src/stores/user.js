@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { login as apiLogin, register as apiRegister, logout as apiLogout, getUserInfo as apiGetUserInfo } from '@/api/auth'
+import { login as apiLogin, register as apiRegister, logout as apiLogout, getUserInfo as apiGetUserInfo, updateUserInfo as apiUpdateUserInfo, changePassword as apiChangePassword } from '@/api/auth'
 import { getToken, setToken, setUser, getUser, clearAuth } from '@/utils/storage'
 import { getTokenRole } from '@/utils/token'
 
@@ -62,6 +62,22 @@ export const useUserStore = defineStore('user', {
       } catch (e) {
         /* 忽略，保留本地缓存 */
       }
+    },
+
+    /** 更新个人信息（nickname/avatar/desc，仅更新传入字段） */
+    async updateProfile(profile) {
+      const info = await apiUpdateUserInfo(profile)
+      if (info && typeof info === 'object') {
+        // 兼容两种返回结构：{ userInfo: {...} }（包裹）或直接 {...}
+        this.userInfo = info.userInfo && typeof info.userInfo === 'object' ? info.userInfo : info
+        setUser(this.userInfo)
+      }
+      return this.userInfo
+    },
+
+    /** 修改密码 */
+    async changePassword(form) {
+      return apiChangePassword(form)
     },
 
     /** 退出登录 */

@@ -40,6 +40,8 @@ const DEFAULT_MOCK_USER = {
   createdAt: '2026-08-12'
 }
 
+
+
 function getMockUsers() {
   try {
     const list = JSON.parse(localStorage.getItem(MOCK_USERS_KEY)) || []
@@ -95,13 +97,14 @@ function decodeSecret(encoded) {
 function mockLogin({ username, password }) {
   return mockDelay().then(() => {
     const users = getMockUsers()
-    // 兼容旧版明文存储：解码后匹配或直接明文匹配
-    const user = users.find((u) =>
-      u.username === username &&
-      (decodeSecret(u.password) === password || u.password === password)
-    )
-    if (!user) {
+    const user = users.find((u) => u.username === username)
+    // 先匹配密码；用户名或密码错误统一提示，避免暴露账户是否存在
+    if (!user || !(decodeSecret(user.password) === password || user.password === password)) {
       throw new Error('用户名或密码错误')
+    }
+    // 账户被软删除（冻结）时禁止登录
+    if (user.status === 1) {
+      throw new Error('账户存在异常请联系管理员')
     }
     const token = buildMockToken()
     const userInfo = sanitizeUser(user)
@@ -116,6 +119,13 @@ function mockRegister({ username, password, nickname }) {
     const users = getMockUsers()
     if (!username || !password) {
       throw new Error('用户名和密码不能为空')
+    }
+    // 与后端 USERNAME_PATTERN 保持一致：3-20 位字母、数字、下划线、中文或连字符
+    if (!/^[\w\u4e00-\u9fa5-]{3,20}$/.test(username)) {
+      throw new Error('用户名需为 3-20 位字母、数字、下划线或中文')
+    }
+    if (password.length < 6 || password.length > 32) {
+      throw new Error('密码长度需为 6-32 位')
     }
     if (users.some((u) => u.username === username)) {
       throw new Error('该用户名已被注册')
@@ -146,6 +156,44 @@ function sanitizeUser(user) {
   return safe
 }
 
+/** Mock：更新当前用户资料（nickname/avatar/desc，字段为 undefined 时不修改） */
+function mockUpdateUserInfo({ nickname, avatar, desc }) {
+  return mockDelay().then(() => {
+    const users = getMockUsers()
+    const current = getUser() || {}
+    const user = users.find((u) => u.id === current.id)
+    if (!user) throw new Error('用户不存在')
+    if (nickname !== undefined && nickname !== null) user.nickname = nickname
+    if (avatar !== undefined && avatar !== null) user.avatar = avatar
+    if (desc !== undefined && desc !== null) user.desc = desc
+    saveMockUsers(users)
+    const userInfo = sanitizeUser(user)
+    setUser(userInfo)
+    return userInfo
+  })
+}
+
+/** Mock：修改密码 */
+function mockChangePassword({ oldPassword, newPassword }) {
+  return mockDelay().then(() => {
+    if (!oldPassword) throw new Error('原密码不能为空')
+    if (!newPassword || newPassword.length < 6 || newPassword.length > 32) {
+      throw new Error('新密码长度需为 6-32 位')
+    }
+    if (oldPassword === newPassword) {
+      throw new Error('新密码不能与原密码相同')
+    }
+    const users = getMockUsers()
+    const current = getUser() || {}
+    const user = users.find((u) => u.id === current.id)
+    if (!user) throw new Error('用户不存在')
+    const matched = decodeSecret(user.password) === oldPassword || user.password === oldPassword
+    if (!matched) throw new Error('原密码错误')
+    user.password = encodeSecret(newPassword)
+    saveMockUsers(users)
+  })
+}
+
 // ========== 对外 API ==========
 
 /** 登录 */
@@ -170,6 +218,18 @@ export function logout() {
 export function getUserInfo() {
   if (USE_MOCK) return Promise.resolve(getUser() || {})
   return request.get('/user/info')
+}
+
+/** 更新个人信息（真实模式 PUT /user/info，body: { nickname?, avatar?, desc? }） */
+export function updateUserInfo(data) {
+  if (USE_MOCK) return mockUpdateUserInfo(data)
+  return request.put('/user/info', data)
+}
+
+/** 修改密码（真实模式 PUT /user/password，body: { oldPassword, newPassword }） */
+export function changePassword(data) {
+  if (USE_MOCK) return mockChangePassword(data)
+  return request.put('/user/password', data)
 }
 
 /** 是否处于 Mock 模式（用于界面提示） */

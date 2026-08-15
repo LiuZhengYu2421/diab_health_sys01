@@ -50,6 +50,8 @@ service.interceptors.response.use(
       if (res.code === 401) {
         // 登录/注册接口的 401 表示「用户名或密码错误」，属业务错误，不触发会话过期逻辑
         if (isAuthRequest(response.config)) {
+          // 直接弹窗提示，避免页面 catch 因 handled=true 不重复弹而漏掉提示
+          showFloatingAlert(res.message || '用户名或密码错误', 'error')
           const authErr = new Error(res.message || '用户名或密码错误')
           authErr.handled = true
           return Promise.reject(authErr)
@@ -121,10 +123,10 @@ service.interceptors.response.use(
   }
 )
 
-// 判断是否为认证类接口（登录/注册），其 401/400 等为业务错误而非会话过期
+// 判断是否为认证类接口（登录/注册/修改密码），其 401/400 等为业务错误而非会话过期
 function isAuthRequest(config) {
   const url = (config && config.url) || ''
-  return /\/auth\/(login|register)$/.test(url)
+  return /\/auth\/(login|register)$/.test(url) || /\/user\/password$/.test(url)
 }
 
 function handleUnauthorized() {
