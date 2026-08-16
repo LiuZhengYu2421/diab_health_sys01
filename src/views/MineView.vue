@@ -24,7 +24,7 @@
           <div class="profile-tags">
             <span class="profile-tag"><i class="fa-solid fa-heart-pulse"></i> 2型糖尿病</span>
             <span class="profile-tag"><i class="fa-solid fa-calendar-days"></i> {{ joinDaysText }}</span>
-            <span class="profile-tag"><i class="fa-solid fa-fire"></i> 连续打卡 12 天</span>
+            <span class="profile-tag"><i class="fa-solid fa-fire"></i> 连续打卡 {{ checkStats.streak }} 天</span>
           </div>
         </div>
         <div class="profile-level">
@@ -215,15 +215,15 @@
       </div>
       <div class="check-stats">
         <div class="check-stat check-stat-blue">
-          <p class="check-stat-num">12</p>
+          <p class="check-stat-num">{{ checkStats.streak }}</p>
           <p class="check-stat-label">连续打卡</p>
         </div>
         <div class="check-stat check-stat-green">
-          <p class="check-stat-num">26</p>
+          <p class="check-stat-num">{{ checkStats.monthCount }}</p>
           <p class="check-stat-label">本月打卡</p>
         </div>
         <div class="check-stat check-stat-orange">
-          <p class="check-stat-num">180</p>
+          <p class="check-stat-num">{{ checkStats.totalCount }}</p>
           <p class="check-stat-label">累计打卡</p>
         </div>
       </div>
@@ -232,27 +232,56 @@
         <div class="week-row">
           <div v-for="(day, idx) in weekDays" :key="day" class="week-item">
             <span class="week-day" :class="{ 'today-text': idx === todayIdx }">{{ day }}</span>
-            <span class="week-dot" :class="{ done: idx < todayIdx, today: idx === todayIdx }">
-              <i v-if="idx < todayIdx" class="fa-solid fa-check"></i>
-              <span v-else>今</span>
+            <span class="week-dot" :class="{ done: weekDone[idx], today: idx === todayIdx && !weekDone[idx] }">
+              <i v-if="weekDone[idx]" class="fa-solid fa-check"></i>
+              <span v-else-if="idx === todayIdx">今</span>
+              <span v-else>·</span>
             </span>
           </div>
         </div>
       </div>
       <div class="check-list-card">
-        <h4>近期记录</h4>
+        <div class="check-list-head">
+          <h4>近期记录</h4>
+          <div class="check-filter">
+            <select v-model="checkQuery.punchType" class="check-filter-select">
+              <option value="">全部类型</option>
+              <option v-for="t in punchTypeOptions" :key="t" :value="t">{{ t }}</option>
+            </select>
+            <input v-model="checkQuery.startDate" type="date" class="check-filter-input" title="开始日期">
+            <span class="check-filter-sep">至</span>
+            <input v-model="checkQuery.endDate" type="date" class="check-filter-input" title="结束日期">
+            <button class="check-filter-btn" @click="onCheckSearch">查询</button>
+            <button class="check-filter-btn reset" @click="onCheckReset">重置</button>
+          </div>
+        </div>
         <ul class="check-list">
-          <li v-for="record in checkRecords" :key="record.day" class="check-item">
+          <li v-if="checkLoading" class="check-empty">加载中...</li>
+          <li v-else-if="!checkRecords.length" class="check-empty">暂无打卡记录</li>
+          <li v-for="record in checkRecords" :key="record.id" class="check-item">
             <span class="check-date">
-              <b>{{ record.day }}</b>08月
+              <b>{{ record.day }}</b>{{ record.month }}
             </span>
             <div class="check-info">
-              <p>健康指数 <b>{{ record.score }}</b> 分 · 血糖 {{ record.sugar }} mmol/L</p>
-              <span class="check-time">{{ record.time }} 完成打卡</span>
+              <p><b>{{ record.punchType }}</b> · {{ record.message || '无备注' }}</p>
+              <span class="check-time">{{ record.time }} · {{ record.completionStatus }}</span>
             </div>
-            <span class="check-badge badge-done">已完成</span>
+            <span class="check-badge" :class="record.completionStatus === '已完成' ? 'badge-done' : 'badge-pending'">{{ record.completionStatus }}</span>
+            <button class="check-del" title="删除记录" @click="onDeleteCheck(record)">
+              <i class="fa-solid fa-trash"></i>
+            </button>
           </li>
         </ul>
+        <!-- 分页 -->
+        <div v-if="checkTotalPages > 1" class="check-pager">
+          <button class="check-page-btn" :disabled="checkQuery.page <= 1" @click="gotoCheckPage(checkQuery.page - 1)">
+            <i class="fa-solid fa-chevron-left"></i> 上一页
+          </button>
+          <span class="check-page-info">{{ checkQuery.page }} / {{ checkTotalPages }}</span>
+          <button class="check-page-btn" :disabled="checkQuery.page >= checkTotalPages" @click="gotoCheckPage(checkQuery.page + 1)">
+            下一页 <i class="fa-solid fa-chevron-right"></i>
+          </button>
+        </div>
       </div>
     </section>
 
@@ -349,10 +378,11 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { showFloatingAlert } from '@/utils/alert'
+import { getPunchRecords, getPunchStats, deletePunchRecord } from '@/api/punchIn'
 
 const route = useRoute()
 const userStore = useUserStore()
@@ -386,16 +416,147 @@ const advices = [
 ]
 
 const weekDays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
+const punchTypeOptions = ['血糖监测', '饮食', '运动', '作息']
 
 // 今天在一周中的索引（周一=0 ... 周日=6），getDay() 返回 0=周日
 const todayIdx = (new Date().getDay() + 6) % 7
 
-const checkRecords = [
-  { day: '11', score: 90, sugar: '5.6', time: '08:30' },
-  { day: '10', score: 88, sugar: '5.9', time: '08:25' },
-  { day: '09', score: 85, sugar: '6.1', time: '08:40' },
-  { day: '08', score: 92, sugar: '5.4', time: '08:20' }
-]
+// ---------- 打卡记录查询与统计分析 ----------
+const checkStats = ref({ streak: 0, monthCount: 0, totalCount: 0 })
+const weekDone = ref(Array(7).fill(false))
+const checkRecords = ref([])
+const checkLoading = ref(false)
+const checkTotal = ref(0)
+const checkQuery = ref({ page: 1, pageSize: 5, punchType: '', startDate: '', endDate: '' })
+const checkTotalPages = computed(() => Math.max(1, Math.ceil(checkTotal.value / checkQuery.value.pageSize)))
+
+function pad2(n) {
+  return String(n).padStart(2, '0')
+}
+
+// 解析后端 punchTime（yyyy-MM-dd HH:mm:ss），返回可展示的日期段
+function parsePunchTime(time) {
+  if (!time) return { day: '', month: '', time: '' }
+  const str = String(time).replace('T', ' ')
+  const [date, t] = str.split(' ')
+  const [, month, day] = (date || '').split('-')
+  return { day: day || '', month: month ? `${month}月` : '', time: (t || '').slice(0, 5) }
+}
+
+async function loadCheckStats() {
+  try {
+    const data = await getPunchStats()
+    checkStats.value = {
+      streak: data?.streak ?? 0,
+      monthCount: data?.monthCount ?? 0,
+      totalCount: data?.totalCount ?? 0
+    }
+  } catch (e) {
+    if (!e?.handled) showFloatingAlert('获取打卡统计失败', 'error')
+  }
+}
+
+// 本周打卡：按周一~今天拉取记录，标记每天是否打卡
+async function loadWeekCheck() {
+  try {
+    const now = new Date()
+    const monday = new Date(now)
+    monday.setDate(now.getDate() - todayIdx)
+    const fmt = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
+    const startDate = fmt(monday)
+    const endDate = fmt(now)
+    const data = await getPunchRecords({ page: 1, pageSize: 100, startDate, endDate })
+    const doneSet = new Set((data?.list || []).map((r) => String(r.punchTime).slice(0, 10)))
+    weekDone.value = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(monday)
+      d.setDate(monday.getDate() + i)
+      return doneSet.has(fmt(d))
+    })
+  } catch (e) {
+    weekDone.value = Array(7).fill(false)
+  }
+}
+
+async function loadCheckRecords() {
+  checkLoading.value = true
+  try {
+    const params = {
+      page: checkQuery.value.page,
+      pageSize: checkQuery.value.pageSize,
+      punchType: checkQuery.value.punchType || undefined,
+      startDate: checkQuery.value.startDate || undefined,
+      endDate: checkQuery.value.endDate || undefined
+    }
+    const data = await getPunchRecords(params)
+    checkTotal.value = data?.total ?? 0
+    checkRecords.value = (data?.list || []).map((r) => {
+      const { day, month, time } = parsePunchTime(r.punchTime)
+      return {
+        ...r,
+        day,
+        month,
+        time,
+        punchType: r.punchType || '未知',
+        completionStatus: r.completionStatus || '未完成',
+        message: r.message || ''
+      }
+    })
+  } catch (e) {
+    checkRecords.value = []
+    checkTotal.value = 0
+    if (!e?.handled) showFloatingAlert('获取打卡记录失败', 'error')
+  } finally {
+    checkLoading.value = false
+  }
+}
+
+function loadCheckPanel() {
+  loadCheckStats()
+  loadWeekCheck()
+  loadCheckRecords()
+}
+
+function onCheckSearch() {
+  checkQuery.value.page = 1
+  loadCheckRecords()
+}
+
+function onCheckReset() {
+  checkQuery.value.page = 1
+  checkQuery.value.punchType = ''
+  checkQuery.value.startDate = ''
+  checkQuery.value.endDate = ''
+  loadCheckRecords()
+}
+
+function gotoCheckPage(page) {
+  if (page < 1 || page > checkTotalPages.value) return
+  checkQuery.value.page = page
+  loadCheckRecords()
+}
+
+async function onDeleteCheck(record) {
+  if (!record?.id) return
+  if (!window.confirm('确定删除这条打卡记录吗？')) return
+  try {
+    await deletePunchRecord(record.id)
+    showFloatingAlert('删除成功', 'success')
+    loadCheckPanel()
+  } catch (e) {
+    if (!e?.handled) showFloatingAlert('删除失败，请稍后重试', 'error')
+  }
+}
+
+// 切到打卡面板时加载数据
+watch(activePanel, (panel) => {
+  if (panel === 'check') loadCheckPanel()
+})
+
+onMounted(() => {
+  // 个人信息栏展示连续打卡天数
+  loadCheckStats()
+  if (activePanel.value === 'check') loadCheckPanel()
+})
 
 const faqs = [
   { icon: 'fa-solid fa-user-gear', question: '如何修改个人信息？', answer: '进入「个人信息」页面，点击头像或用户名即可编辑头像、昵称等资料，保存后自动生效。' },
