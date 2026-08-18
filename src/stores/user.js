@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { login as apiLogin, register as apiRegister, logout as apiLogout, getUserInfo as apiGetUserInfo, updateUserInfo as apiUpdateUserInfo, changePassword as apiChangePassword } from '@/api/auth'
 import { getToken, setToken, setUser, getUser, clearAuth } from '@/utils/storage'
 import { getTokenRole } from '@/utils/token'
+import { recordOperation } from '@/utils/operationLog'
 
 export const useUserStore = defineStore('user', {
   state: () => ({
@@ -34,6 +35,12 @@ export const useUserStore = defineStore('user', {
       this.userInfo = res.userInfo || {}
       setToken(res.token)
       setUser(this.userInfo)
+      recordOperation({
+        type: '登录',
+        action: '用户登录',
+        detail: `账号：${form.username || form.account || form.email || ''}`,
+        result: 'success'
+      })
       return res
     },
 
@@ -44,6 +51,12 @@ export const useUserStore = defineStore('user', {
       this.userInfo = res.userInfo || {}
       setToken(res.token)
       setUser(this.userInfo)
+      recordOperation({
+        type: '注册',
+        action: '新用户注册',
+        detail: `账号：${form.username || form.account || form.email || ''}`,
+        result: 'success'
+      })
       return res
     },
 
@@ -72,12 +85,25 @@ export const useUserStore = defineStore('user', {
         this.userInfo = info.userInfo && typeof info.userInfo === 'object' ? info.userInfo : info
         setUser(this.userInfo)
       }
+      recordOperation({
+        type: '资料更新',
+        action: '更新个人信息',
+        detail: Object.keys(profile || {}).join('、') || '修改资料',
+        result: 'success'
+      })
       return this.userInfo
     },
 
     /** 修改密码 */
     async changePassword(form) {
-      return apiChangePassword(form)
+      const res = await apiChangePassword(form)
+      recordOperation({
+        type: '密码修改',
+        action: '修改登录密码',
+        detail: '用户主动修改登录密码',
+        result: 'success'
+      })
+      return res
     },
 
     /** 退出登录 */
@@ -87,6 +113,12 @@ export const useUserStore = defineStore('user', {
       } catch (e) {
         /* 忽略退出接口异常 */
       }
+      recordOperation({
+        type: '退出登录',
+        action: '用户退出登录',
+        detail: '',
+        result: 'success'
+      })
       clearAuth()
       this.token = ''
       this.userInfo = {}

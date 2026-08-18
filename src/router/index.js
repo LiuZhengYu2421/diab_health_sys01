@@ -21,12 +21,6 @@ const routes = [
         meta: { title: '专业医师团队' }
       },
       {
-        path: 'science',
-        name: 'science',
-        component: () => import('@/views/ScienceView.vue'),
-        meta: { title: '健康科普' }
-      },
-      {
         path: 'mine',
         name: 'mine',
         component: () => import('@/views/MineView.vue'),
@@ -35,20 +29,38 @@ const routes = [
       {
         path: 'scheme',
         name: 'scheme',
-        component: () => import('@/views/PlaceholderView.vue'),
-        meta: { title: '方案定制', placeholder: true }
+        component: () => import('@/views/LifeSchemeView.vue'),
+        meta: { title: '方案定制' }
       },
       {
         path: 'lifeadvice',
         name: 'lifeadvice',
-        component: () => import('@/views/PlaceholderView.vue'),
-        meta: { title: '生活建议', placeholder: true }
+        component: () => import('@/views/HealthConsultView.vue'),
+        meta: { title: '健康咨询' }
       },
       {
         path: 'ai',
         name: 'ai',
-        component: () => import('@/views/PlaceholderView.vue'),
-        meta: { title: 'AI 助手', placeholder: true }
+        component: () => import('@/views/AiAssistantView.vue'),
+        meta: { title: 'AI 智能助手' }
+      },
+      {
+        path: 'consult',
+        name: 'consult',
+        component: () => import('@/views/DoctorConsultView.vue'),
+        meta: { title: '医师在线咨询' }
+      },
+      {
+        path: 'punch-analyze',
+        name: 'punch-analyze',
+        component: () => import('@/views/PunchAnalyzeView.vue'),
+        meta: { title: '智能打卡分析' }
+      },
+      {
+        path: 'risk-predict',
+        name: 'risk-predict',
+        component: () => import('@/views/RiskPredictView.vue'),
+        meta: { title: '糖尿病风险预测' }
       }
     ]
   },
@@ -70,7 +82,18 @@ const router = createRouter({
   routes
 })
 
-// 全局前置守卫：未登录跳登录页；管理页校验 role=admin
+// 判断是否为浏览器刷新（刷新时浏览器重新加载，页面内存状态会丢失）
+function isPageReload() {
+  if (typeof window === 'undefined' || !window.performance) return false
+  const entries = window.performance.getEntriesByType('navigation')
+  return entries.length > 0 && entries[0].type === 'reload'
+}
+
+// 标记是否已处理完“刷新回首页”，navigation.type 在页面加载后不会变化，
+// 因此只在应用启动后的首次导航判断一次，避免误伤后续的正常页面跳转
+let isFirstNavigation = true
+
+// 全局前置守卫：未登录跳登录页；管理页校验 role=admin；刷新页面时回到首页
 router.beforeEach((to, from, next) => {
   const token = getToken()
   const userInfo = getUser() || {}
@@ -83,7 +106,12 @@ router.beforeEach((to, from, next) => {
   } else if (to.meta.requiresAdmin && userInfo.role !== 'admin' && getTokenRole(token) !== 'admin') {
     // 非管理员访问管理后台：跳回首页（userInfo 缺失时从 token 解码 role 兜底）
     next({ path: '/team' })
+  } else if (isFirstNavigation && isPageReload() && to.path !== '/team' && to.path !== '/login' && !to.meta.public) {
+    // 浏览器刷新：首次导航跳转到首页，避免页面内存状态丢失导致异常
+    isFirstNavigation = false
+    next({ path: '/team' })
   } else {
+    isFirstNavigation = false
     next()
   }
 })
