@@ -18,6 +18,14 @@ body {
     min-height: 100vh;
 }
 
+/* 表单控件默认不继承 body 字体，需显式统一，否则会与正文字体不一致 */
+input,
+textarea,
+select,
+button {
+    font-family: inherit;
+}
+
 /* ================= 顶部导航栏 ================= */
 .top-nav {
     background: rgba(255, 255, 255, 0.92);
@@ -94,6 +102,81 @@ body {
 
 .nav-link:hover::after {
     width: 100%;
+}
+
+/* 顶部下拉菜单（个人中心 / AI 智能服务） */
+.nav-drop {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.nav-drop-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+}
+
+.nav-drop-toggle > i:first-child {
+    font-size: 14px;
+}
+
+.nav-drop-arrow {
+    font-size: 10px;
+    color: #c3cdde;
+    transition: transform 0.25s, color 0.2s;
+}
+
+.nav-drop.open .nav-drop-arrow {
+    transform: rotate(180deg);
+    color: #2563eb;
+}
+
+.nav-drop-menu {
+    position: absolute;
+    top: calc(100% + 12px);
+    left: 50%;
+    transform: translateX(-50%);
+    min-width: 168px;
+    background: #fff;
+    border: 1px solid #eef2f8;
+    border-radius: 12px;
+    box-shadow: 0 12px 32px rgba(30, 99, 240, 0.12);
+    padding: 8px;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s, visibility 0.2s, transform 0.2s;
+    z-index: 200;
+}
+
+.nav-drop.open .nav-drop-menu {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0);
+}
+
+.nav-drop-item {
+    display: block;
+    padding: 9px 14px;
+    border-radius: 8px;
+    font-size: 14px;
+    color: #5a6478;
+    text-decoration: none;
+    white-space: nowrap;
+    text-align: center;
+    transition: background 0.2s, color 0.2s;
+}
+
+.nav-drop-item:hover {
+    background: #f1f6ff;
+    color: #2563eb;
+}
+
+.nav-drop-item.active {
+    background: linear-gradient(90deg, #2563eb, #3b82f6);
+    color: #fff;
+    font-weight: 600;
 }
 
 .user-box {
@@ -237,194 +320,6 @@ body {
     align-items: flex-start;
 }
 
-/* ================= 左侧菜单栏 ================= */
-.side-menu {
-    width: 262px;
-    flex-shrink: 0;
-    background: #fff;
-    border-radius: 18px;
-    box-shadow: 0 8px 32px rgba(30, 99, 240, 0.08);
-    padding: 24px 16px;
-    position: sticky;
-    top: 92px;
-    border: 1px solid #eef2f8;
-}
-
-.side-menu-title {
-    font-size: 12px;
-    color: #a4b0c6;
-    letter-spacing: 3px;
-    padding: 0 12px 10px;
-    font-weight: 600;
-}
-
-.menu-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 13px 14px;
-    border-radius: 12px;
-    cursor: pointer;
-    transition: background 0.2s, color 0.2s, transform 0.15s;
-    margin-bottom: 6px;
-}
-
-.menu-item:hover {
-    background: #f1f6ff;
-    transform: translateX(2px);
-}
-
-.menu-item.active {
-    background: linear-gradient(90deg, #2563eb, #3b82f6);
-    color: #fff;
-    font-weight: 600;
-    box-shadow: 0 6px 16px rgba(37, 99, 235, 0.3);
-}
-
-.menu-left {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.menu-left i {
-    width: 22px;
-    text-align: center;
-    font-size: 16px;
-    color: #93a0b8;
-    transition: color 0.2s;
-}
-
-.menu-item:hover .menu-left i {
-    color: #2563eb;
-}
-
-.menu-item.active .menu-left i {
-    color: #fff;
-}
-
-.menu-arrow {
-    font-size: 11px;
-    color: #c3cdde;
-    opacity: 0;
-    transition: opacity 0.2s, color 0.2s;
-}
-
-.menu-item:hover .menu-arrow {
-    opacity: 1;
-    color: #2563eb;
-}
-
-.menu-item.active .menu-arrow {
-    opacity: 1;
-    color: rgba(255, 255, 255, 0.85);
-}
-
-.menu-title {
-    font-size: 15px;
-}
-
-/* ----- 二级子菜单 ----- */
-.menu-group {
-    margin-bottom: 6px;
-}
-
-.menu-item .submenu-arrow {
-    font-size: 12px;
-    color: #c3cdde;
-    transition: transform 0.3s, color 0.2s;
-}
-
-.menu-item.open .submenu-arrow {
-    transform: rotate(180deg);
-    color: #2563eb;
-}
-
-.menu-item.open {
-    background: #f1f6ff;
-}
-
-.menu-item.open .menu-left i,
-.menu-item.open .menu-title {
-    color: #2563eb;
-}
-
-.submenu {
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height 0.35s ease;
-    padding-left: 14px;
-}
-
-.submenu.open {
-    max-height: 300px;
-}
-
-.submenu-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 14px 10px 34px;
-    border-radius: 10px;
-    cursor: pointer;
-    font-size: 14px;
-    color: #5a6478;
-    transition: background 0.2s, color 0.2s;
-    position: relative;
-}
-
-.submenu-item::before {
-    content: '';
-    position: absolute;
-    left: 20px;
-    top: 0;
-    bottom: 0;
-    width: 2px;
-    background: #e8edf5;
-}
-
-.submenu-item:first-child::before {
-    top: 50%;
-}
-
-.submenu-item:last-child::before {
-    bottom: 50%;
-}
-
-.submenu-item:hover {
-    color: #2563eb;
-    background: #f1f6ff;
-}
-
-.submenu-item.active {
-    color: #2563eb;
-    font-weight: 600;
-    background: #eef4ff;
-}
-
-.submenu-dot {
-    font-size: 6px;
-    color: #c3cdde;
-    flex-shrink: 0;
-    z-index: 1;
-    background: #fff;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-}
-
-.submenu-item.active .submenu-dot {
-    color: #2563eb;
-}
-
-.submenu-item:hover .submenu-dot {
-    color: #2563eb;
-}
-
 /* ================= 右侧内容区 ================= */
 .content {
     flex: 1;
@@ -491,27 +386,29 @@ body {
 
 /* ================= 响应式 ================= */
 @media (max-width: 900px) {
-    .nav-links {
-        display: none;
-    }
-
     .nav-inner {
         justify-content: space-between;
+        gap: 20px;
     }
 
-    .main-container {
-        flex-direction: column;
+    .nav-links {
+        gap: 22px;
+        overflow-x: auto;
+        padding-bottom: 4px;
     }
 
-    .side-menu {
-        width: 100%;
-        position: static;
+    .nav-drop-menu {
+        position: fixed;
+        top: 64px;
+        left: 0;
+        right: 0;
+        transform: none;
+        max-width: 90vw;
+        margin: 0 auto;
     }
 
-    .side-menu-list {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 8px;
+    .nav-drop.open .nav-drop-menu {
+        transform: none;
     }
 
     .iframe-wrap {
@@ -521,10 +418,6 @@ body {
 }
 
 @media (max-width: 600px) {
-    .side-menu-list {
-        grid-template-columns: repeat(2, 1fr);
-    }
-
     .user-meta {
         display: none;
     }

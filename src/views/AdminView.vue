@@ -65,7 +65,7 @@
 
       <!-- 内容区 -->
       <main class="admin-content">
-        <component :is="currentComponent" v-bind="isPending ? pendingProps : {}" />
+        <component :is="currentComponent" />
       </main>
     </div>
   </div>
@@ -80,16 +80,16 @@ import { showFloatingAlert } from '@/utils/alert'
 import DashboardPanel from './admin/DashboardPanel.vue'
 import DoctorPanel from './admin/DoctorPanel.vue'
 import ArticlePanel from './admin/ArticlePanel.vue'
-import TypePanel from './admin/TypePanel.vue'
 import UserPanel from './admin/UserPanel.vue'
-import PendingPanel from './admin/PendingPanel.vue'
+import AiDataAssistantPanel from './admin/AiDataAssistantPanel.vue'
+import OperationLogPanel from './admin/OperationLogPanel.vue'
 
 const router = useRouter()
 const userStore = useUserStore()
 
 const current = ref('dashboard')
 
-// 四大管理员职责导航（与《四人开发文档》第十三章对应）
+// 管理员职责导航
 const menuGroups = [
   {
     title: '核心数据运维',
@@ -97,8 +97,7 @@ const menuGroups = [
     desc: '人员一 · 核心数据运维管理员',
     children: [
       { key: 'doctors', label: '医生团队管理', icon: 'fa-solid fa-user-doctor' },
-      { key: 'articles', label: '健康科普文章', icon: 'fa-solid fa-newspaper' },
-      { key: 'types', label: '糖尿病类型', icon: 'fa-solid fa-disease' }
+      { key: 'articles', label: '健康科普文章', icon: 'fa-solid fa-newspaper' }
     ]
   },
   {
@@ -106,19 +105,7 @@ const menuGroups = [
     icon: 'fa-solid fa-users',
     desc: '人员二 · 用户账号与数据管理员',
     children: [
-      { key: 'users', label: '用户账号管理', icon: 'fa-solid fa-address-card' },
-      { key: 'risks', label: '风险数据管理', icon: 'fa-solid fa-heart-circle-exclamation' },
-      { key: 'punches', label: '打卡数据管理', icon: 'fa-solid fa-calendar-check' }
-    ]
-  },
-  {
-    title: '个性化资源',
-    icon: 'fa-solid fa-heart-pulse',
-    desc: '人员三 · 用户个性化资源管理员',
-    children: [
-      { key: 'plans', label: '生活方案管理', icon: 'fa-solid fa-clipboard-list' },
-      { key: 'advice', label: '生活建议管理', icon: 'fa-solid fa-lightbulb' },
-      { key: 'favorites', label: '资讯收藏运维', icon: 'fa-solid fa-bookmark' }
+      { key: 'users', label: '用户账号管理', icon: 'fa-solid fa-address-card' }
     ]
   },
   {
@@ -127,63 +114,10 @@ const menuGroups = [
     desc: '人员四 · AI 智能数据管理员',
     children: [
       { key: 'aiops', label: 'AI 功能运维', icon: 'fa-solid fa-microchip' },
-      { key: 'aigc', label: 'AI 生成数据', icon: 'fa-solid fa-wand-magic-sparkles' },
-      { key: 'overview', label: '全局健康数据总览', icon: 'fa-solid fa-chart-pie' }
+      { key: 'oplog', label: '操作日志', icon: 'fa-solid fa-list-check' }
     ]
   }
 ]
-
-// 建设中模块的说明（用于 PendingPanel）
-const pendingMap = {
-  risks: {
-    title: '风险数据管理',
-    owner: '人员二 · 用户账号与数据管理员',
-    desc: '后台查看、管理全站用户的糖尿病风险评测数据，支持异常数据修正与合规管理。',
-    points: ['全站风险评测数据查看', '异常数据修正', '合规审核']
-  },
-  punches: {
-    title: '打卡数据管理',
-    owner: '人员二 · 用户账号与数据管理员',
-    desc: '统一管理全站用户打卡记录，查看全局打卡统计数据、清理无效打卡数据、维护用户打卡行为数据。',
-    points: ['全局打卡统计', '打卡记录清理', '行为数据维护']
-  },
-  plans: {
-    title: '生活方案管理',
-    owner: '人员三 · 用户个性化资源管理员',
-    desc: '后台查看、管理所有用户创建的饮食、运动、生活习惯方案，处理违规、无效方案数据。',
-    points: ['全站方案查看', '违规方案处理', '方案数据维护']
-  },
-  advice: {
-    title: '生活建议管理',
-    owner: '人员三 · 用户个性化资源管理员',
-    desc: '统一维护系统公共生活建议资源，管理前台展示的生活建议列表与详情数据。',
-    points: ['公共建议维护', '建议列表管理', '详情数据管理']
-  },
-  favorites: {
-    title: '资讯收藏运维',
-    owner: '人员三 · 用户个性化资源管理员',
-    desc: '后台查看全站用户收藏数据，保障收藏功能数据一致性与稳定性。',
-    points: ['收藏数据查看', '数据一致性保障', '稳定性运维']
-  },
-  aiops: {
-    title: 'AI 功能运维',
-    owner: '人员四 · AI 智能数据管理员',
-    desc: '管理 Dify 对接配置、智能对话日志、AI 咨询记录，排查 AI 回复异常、接口调用异常。',
-    points: ['Dify 对接配置', '对话日志查看', 'AI 异常排查']
-  },
-  aigc: {
-    title: 'AI 生成数据管理',
-    owner: '人员四 · AI 智能数据管理员',
-    desc: '后台查看、审核、管理 AI 自动生成的健康方案、AI 风险评估报告、用户生活状态分析报告。',
-    points: ['AI 方案审核', '风险评估报告管理', '生活状态分析']
-  },
-  overview: {
-    title: '全局健康数据总览',
-    owner: '人员四 · AI 智能数据管理员',
-    desc: '后台汇总展示全站用户风险数据、打卡数据、健康方案数据，实现系统健康数据可视化管理与运维。',
-    points: ['风险数据汇总', '打卡数据汇总', '健康方案可视化']
-  }
-}
 
 const currentMeta = computed(() => {
   if (current.value === 'dashboard') {
@@ -207,29 +141,15 @@ const currentComponent = computed(() => {
       return DoctorPanel
     case 'articles':
       return ArticlePanel
-    case 'types':
-      return TypePanel
     case 'users':
       return UserPanel
+    case 'aiops':
+      return AiDataAssistantPanel
+    case 'oplog':
+      return OperationLogPanel
     default:
-      return PendingPanel
+      return DashboardPanel
   }
-})
-
-// 是否为建设中占位模块
-const isPending = computed(() =>
-  ['risks', 'punches', 'plans', 'advice', 'favorites', 'aiops', 'aigc', 'overview'].includes(current.value)
-)
-
-// 传递给 PendingPanel 的模块信息
-const pendingProps = computed(() => {
-  const info = pendingMap[current.value] || {
-    title: '功能建设中',
-    owner: '管理员',
-    desc: '该模块正在建设中，敬请期待。',
-    points: []
-  }
-  return info
 })
 
 function goFront() {

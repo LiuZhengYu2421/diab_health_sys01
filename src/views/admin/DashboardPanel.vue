@@ -33,15 +33,6 @@
         </div>
       </div>
       <div class="stat-card">
-        <div class="stat-icon" style="background:#fef3c7;color:#d97706">
-          <i class="fa-solid fa-disease"></i>
-        </div>
-        <div class="stat-info">
-          <div class="stat-value">{{ stats.types }}</div>
-          <div class="stat-label">糖尿病类型</div>
-        </div>
-      </div>
-      <div class="stat-card">
         <div class="stat-icon" style="background:#fce7f3;color:#db2777">
           <i class="fa-solid fa-users"></i>
         </div>
@@ -78,12 +69,12 @@
 <script setup>
 import { onMounted, reactive } from 'vue'
 import { useUserStore } from '@/stores/user'
-import { getDoctors, getArticles, getDiabetesTypes, getAdminUsers } from '@/api/admin'
+import { getDoctors, getArticles, getAdminUsers } from '@/api/admin'
 import { showFloatingAlert } from '@/utils/alert'
 
 const userStore = useUserStore()
 
-const stats = reactive({ doctors: '-', articles: '-', types: '-', users: '-' })
+const stats = reactive({ doctors: '-', articles: '-', users: '-' })
 
 const roles = [
   {
@@ -91,42 +82,33 @@ const roles = [
     title: '人员一（首页模块）',
     icon: 'fa-solid fa-database',
     tag: '公共内容运维',
-    items: ['医生团队后台管理', '健康科普文章管理', '糖尿病类型管理']
+    items: ['医生团队管理', '健康科普文章']
   },
   {
     name: '用户账号与数据管理员',
     title: '人员二（个人中心模块）',
     icon: 'fa-solid fa-address-card',
     tag: '用户体系运维',
-    items: ['用户账号管理', '用户健康风险数据管理', '打卡数据后台管理']
-  },
-  {
-    name: '用户个性化资源管理员',
-    title: '人员三（方案定制+健康资讯）',
-    icon: 'fa-solid fa-heart-pulse',
-    tag: '个性化业务运维',
-    items: ['全局生活方案管理', '生活建议数据管理', '资讯收藏数据运维']
+    items: ['用户账号管理']
   },
   {
     name: 'AI 智能数据管理员',
     title: '人员四（智能助手+智能管理）',
     icon: 'fa-solid fa-robot',
     tag: '智能模块运维',
-    items: ['AI 功能后台运维', 'AI 生成数据管理', '全局健康数据总览']
+    items: ['AI 功能运维', '操作日志']
   }
 ]
 
 async function loadStats() {
   try {
-    const [doctors, articles, types, users] = await Promise.allSettled([
+    const [doctors, articles, users] = await Promise.allSettled([
       getDoctors({ page: 1, pageSize: 1 }),
       getArticles({ page: 1, pageSize: 1 }),
-      getDiabetesTypes({ page: 1, pageSize: 1 }),
       getAdminUsers()
     ])
     if (doctors.status === 'fulfilled') stats.doctors = doctors.value?.total ?? 0
     if (articles.status === 'fulfilled') stats.articles = articles.value?.total ?? 0
-    if (types.status === 'fulfilled') stats.types = types.value?.total ?? 0
     if (users.status === 'fulfilled') {
       const u = users.value
       stats.users = Array.isArray(u) ? u.length : u?.total ?? 0
