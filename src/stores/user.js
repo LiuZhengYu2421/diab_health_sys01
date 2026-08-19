@@ -94,6 +94,22 @@ export const useUserStore = defineStore('user', {
       return this.userInfo
     },
 
+    /** 更新糖尿病预测信息（healthInfo，仅更新传入字段） */
+    async updateHealthInfo(healthInfo) {
+      const info = await apiUpdateUserInfo({ healthInfo })
+      if (info && typeof info === 'object') {
+        this.userInfo = info.userInfo && typeof info.userInfo === 'object' ? info.userInfo : info
+        setUser(this.userInfo)
+      }
+      recordOperation({
+        type: '健康档案',
+        action: '更新糖尿病预测信息',
+        detail: `是否患病：${(healthInfo && healthInfo.disease) || '未填写'}`,
+        result: 'success'
+      })
+      return this.userInfo
+    },
+
     /** 修改密码 */
     async changePassword(form) {
       const res = await apiChangePassword(form)

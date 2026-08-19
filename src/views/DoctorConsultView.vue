@@ -42,11 +42,11 @@
           </div>
           <div class="form-field">
             <label>身高 (cm) <em>*</em></label>
-            <input v-model.number="health.height" type="number" class="field-input" placeholder="e.g. 170">
+            <input v-model.number="health.height" type="number" class="field-input" min="80" max="250" placeholder="e.g. 170">
           </div>
           <div class="form-field">
             <label>体重 (kg) <em>*</em></label>
-            <input v-model.number="health.weight" type="number" class="field-input" placeholder="e.g. 65">
+            <input v-model.number="health.weight" type="number" class="field-input" min="20" max="300" placeholder="e.g. 65">
           </div>
           <div class="form-field">
             <label>家族病史 <em>*</em></label>
@@ -64,11 +64,17 @@
           </div>
           <div class="form-field">
             <label>腰围 (cm) <em>选填</em></label>
-            <input v-model.number="health.waistline" type="number" class="field-input" placeholder="e.g. 85">
+            <div class="predict-input">
+              <input v-model.number="health.waistline" type="number" class="field-input" min="40" max="200" :placeholder="waistPredicted ? '预测约 ' + predictedWaist + ' cm' : '选填'">
+              <span v-if="waistPredicted" class="predicted-tag">（预测）</span>
+            </div>
           </div>
           <div class="form-field">
             <label>收缩压 (mmHg) <em>选填</em></label>
-            <input v-model.number="health.systolicPressure" type="number" class="field-input" placeholder="e.g. 120">
+            <div class="predict-input">
+              <input v-model.number="health.systolicPressure" type="number" class="field-input" min="60" max="250" :placeholder="bpPredicted ? '预测约 ' + predictedBp + ' mmHg' : '选填'">
+              <span v-if="bpPredicted" class="predicted-tag">（预测）</span>
+            </div>
           </div>
           <div class="form-field">
             <label>是否处于妊娠期 <em>选填</em></label>
@@ -131,12 +137,16 @@
 </template>
 
 <script setup>
-import { ref, nextTick, onMounted } from 'vue'
+import { ref, computed, nextTick, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
+import { useUserStore } from '@/stores/user'
+import { getCurrentUserId } from '@/api/dify'
 import { doctorChat, isMockMode } from '@/api/dify'
 import { recordOperation } from '@/utils/operationLog'
+import { predictWaist, predictBp, calcBmi } from '@/utils/diabetesRisk'
 
 const route = useRoute()
+const userStore = useUserStore()
 
 const doctor = ref({
   name: '',
@@ -164,7 +174,7 @@ const inputText = ref('')
 const chatBody = ref(null)
 
 const health = ref({
-  userId: 1,
+  userId: getCurrentUserId(),
   sex: '男',
   age: 45,
   height: 170,
@@ -173,10 +183,25 @@ const health = ref({
   waistline: null,
   systolicPressure: null,
   isPregnancy: '否',
-  disease: '否'
+  disease: '否',
+  diabetesType: null
 })
 
 const messages = ref([])
+
+// 腰围/收缩压预测值（未填写时按身高体重性别推断，用于回显标注）
+const predictedWaist = computed(() => {
+  const h = health.value
+  if (!h.sex || !h.height) return null
+  return predictWaist(h.sex, h.height, calcBmi(h.height, h.weight))
+})
+const predictedBp = computed(() => {
+  const h = health.value
+  if (!h.sex || !h.height || !h.weight) return null
+  return predictBp(h.sex, calcBmi(h.height, h.weight))
+})
+const waistPredicted = computed(() => !health.value.waistline && predictedWaist.value !== null)
+const bpPredicted = computed(() => !health.value.systolicPressure && predictedBp.value !== null)
 
 function formatTime() {
   const d = new Date()
@@ -187,6 +212,8 @@ function validateForm() {
   if (!health.value.age || health.value.age < 1) return '请填写正确的年龄'
   if (!health.value.height || health.value.height < 80 || health.value.height > 250) return '请填写正确的身高'
   if (!health.value.weight || health.value.weight < 20 || health.value.weight > 300) return '请填写正确的体重'
+  if (health.value.waistline && (health.value.waistline < 40 || health.value.waistline > 200)) return '请填写正确的腰围'
+  if (health.value.systolicPressure && (health.value.systolicPressure < 60 || health.value.systolicPressure > 250)) return '请填写正确的收缩压'
   return ''
 }
 
@@ -240,13 +267,30 @@ async function send() {
   }
 }
 
+// 从个人信息 healthInfo 自动填充健康档案表单
+function loadHealthFromProfile() {
+  const h = userStore.userInfo.healthInfo || {}
+  const hasProfileData = ['disease', 'sex', 'age', 'height', 'weight'].some((k) => h[k] !== undefined && h[k] !== null && h[k] !== '')
+  if (hasProfileData) {
+    health.value = {
+      userId: getCurrentUserId(),
+      sex: h.sex === '男' || h.sex === '女' ? h.sex : '男',
+      age: h.age != null && h.age !== '' ? Number(h.age) : 45,
+      height: h.height != null && h.height !== '' ? Number(h.height) : 170,
+      weight: h.weight != null && h.weight !== '' ? Number(h.weight) : 65,
+      familyHistory: h.familyHistory === '是' || h.familyHistory === '否' ? h.familyHistory : '否',
+      waistline: h.waistline != null && h.waistline !== '' ? Number(h.waistline) : null,
+      systolicPressure: h.systolicPressure != null && h.systolicPressure !== '' ? Number(h.systolicPressure) : null,
+      isPregnancy: h.isPregnancy === '是' || h.isPregnancy === '否' ? h.isPregnancy : '否',
+      disease: h.disease === '是' || h.disease === '否' ? h.disease : '否',
+      diabetesType: h.diabetesType || null
+    }
+  }
+}
+
 onMounted(() => {
   loadDoctor()
-  // 尝试恢复用户 id
-  try {
-    const u = JSON.parse(localStorage.getItem('diabetes_user') || 'null')
-    if (u && u.id) health.value.userId = u.id
-  } catch (e) { /* ignore */ }
+  loadHealthFromProfile()
 })
 </script>
 
@@ -397,6 +441,25 @@ onMounted(() => {
 }
 .field-input:focus {
   border-color: #2563eb;
+}
+.predict-input {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.predict-input .field-input {
+  flex: 1;
+  min-width: 0;
+}
+.predicted-tag {
+  flex-shrink: 0;
+  font-style: normal;
+  font-size: 11px;
+  color: #7c3aed;
+  background: #ede9fe;
+  padding: 2px 6px;
+  border-radius: 6px;
+  white-space: nowrap;
 }
 .seg-group {
   display: flex;

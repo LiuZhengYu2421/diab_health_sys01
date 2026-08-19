@@ -116,7 +116,7 @@ const menuGroups = [
       { title: 'AI智能助手', path: '/ai' },
       { title: '医师在线咨询', path: '/consult' },
       { title: '智能打卡分析', path: '/punch-analyze' },
-      { title: '糖尿病风险预测', path: '/risk-predict' }
+      { title: '智能风险预测', path: '/risk-predict' }
     ]
   }
 ]
