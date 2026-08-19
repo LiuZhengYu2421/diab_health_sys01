@@ -60,7 +60,7 @@ const routes = [
         path: 'risk-predict',
         name: 'risk-predict',
         component: () => import('@/views/RiskPredictView.vue'),
-        meta: { title: '糖尿病风险预测' }
+        meta: { title: '智能风险预测' }
       }
     ]
   },

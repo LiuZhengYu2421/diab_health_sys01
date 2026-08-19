@@ -16,10 +16,13 @@
  *     请求 { userId }
  *     响应 { code:200, data: { process, completionStatus, evaluate, suggestion } }
  *  POST /api/dify/risk/predict     糖尿病风险预测
- *     请求 { userId, age, sex, height, weight, familyHistory, waistline, systolicPressure, isPregnancy, disease }
- *     响应 { code:200, data: { riskLevel, riskScore, advice, detail } }
+ *     请求 { userId, age, sex, height, weight, familyHistory, waistline, systolicPressure, isPregnancy, disease, diabetesType }
+ *          disease 为 '是'（已确诊）时，后端应返回 diabetesType 对应类型的管理建议，riskLevel 返回类型名称
+ *          disease 为 '否' 时，按标准风险评分表计算：年龄/BMI/腰围/收缩压/家族史/性别 合计 0-51 分，≥25 分高风险
+ *     响应 { code:200, data: { riskLevel, riskScore, advice, detail: { total, items, ... } } }
  *  POST /api/dify/assistant/chat   智能助手对话
- *     请求 { userId, age, sex, height, weight, familyHistory, waistline, systolicPressure, isPregnancy, disease, messages }
+ *     请求 { userId, sessionId, messages }
+ *          （已实现：后端按 userId 自动从 user_risk_info 表读取健康档案填充表单变量，前端无需手动输入）
  *     响应 { code:200, data: { answer, sessionId } }
  *  POST /api/dify/admin/query      AI 数据助理（管理员端）
  *     请求 { messages }
@@ -39,6 +42,7 @@
  */
 import request from './request'
 import { getUser } from '@/utils/storage'
+import { calcDiabetesRisk } from '@/utils/diabetesRisk'
 
 // ========== 模式开关 ==========
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true'
@@ -85,25 +89,38 @@ function mockPunchAnalyze() {
 }
 
 // ========== 糖尿病风险预测（Mock） ==========
+// 已确诊（disease === '是'）：返回糖尿病类型与针对性管理建议，不再计算风险评分。
+// 未确诊：按标准风险评分表（年龄/BMI/腰围/收缩压/家族史/性别）计算 0-51 分，≥25 分为高风险。
 function mockRiskPredict(data) {
   return mockDelay(800).then(() => {
-    const bmi = data.height > 0 ? data.weight / Math.pow(data.height / 100, 2) : 23
-    const waist = Number(data.waistline) || 0
-    const bp = Number(data.systolicPressure) || 0
-    let score = 20
-    if (bmi > 24) score += 15
-    if (bmi >= 28) score += 10
-    if (waist > 0 && ((data.sex === '男' && waist >= 90) || (data.sex === '女' && waist >= 85))) score += 20
-    if (bp > 0 && bp >= 130) score += 15
-    if (data.familyHistory === '是') score += 15
-    if (data.isPregnancy === '是') score += 10
-    score = Math.min(score, 99)
-    const level = score >= 60 ? '高风险' : score >= 35 ? '中风险' : '低风险'
+    if (data.disease === '是') {
+      const typeAdvice = {
+        '1型糖尿病': '1型糖尿病需长期胰岛素替代治疗，请遵医嘱规律用药，定期监测血糖与糖化血红蛋白，预防酮症酸中毒等急性并发症。',
+        '2型糖尿病': '2型糖尿病以生活方式干预为基础，注意控制饮食、坚持运动、规律用药，定期复查血糖并筛查心、肾、眼底等并发症。',
+        '妊娠糖尿病': '妊娠糖尿病需在产科与内分泌科共同指导下进行医学营养治疗与血糖监测，多数患者产后血糖可恢复正常，产后 4~12 周建议复查血糖。',
+        '其他类型': '其他特殊类型糖尿病需针对病因治疗，请在专科医生指导下制定个体化降糖方案并规律复诊。'
+      }
+      const type = data.diabetesType || '糖尿病'
+      return {
+        riskLevel: type,
+        riskScore: 0,
+        advice: typeAdvice[type] || `您已确诊${type}，请遵医嘱规律治疗，保持健康生活方式，并定期复查随访。`,
+        detail: { diabetesType: type, age: data.age || '未填写', familyHistory: data.familyHistory || '未填写' }
+      }
+    }
+    // 标准评分表计算（腰围/收缩压未填时由身高体重等推断）
+    const risk = calcDiabetesRisk(data)
     return {
-      riskLevel: level,
-      riskScore: score,
-      advice: level === '高风险' ? '您的糖尿病风险偏高，请尽快前往医院内分泌科做进一步检查，并严格遵循医生建议进行生活方式干预。' : level === '中风险' ? '您的糖尿病风险处于中等水平，建议加强血糖监测、控制饮食与体重，并定期复查。' : '您的糖尿病风险较低，请继续保持健康的生活方式，定期进行健康检查。',
-      detail: { bmi: bmi.toFixed(1), waistline: data.waistline || '未填写', systolicPressure: data.systolicPressure || '未填写' }
+      riskLevel: risk.level,
+      riskScore: risk.total,
+      advice: risk.advice,
+      detail: {
+        total: risk.total,
+        items: risk.items,
+        bmi: risk.bmi !== null ? risk.bmi.toFixed(1) : '未填写',
+        waistline: risk.waist !== null ? `${risk.waist}${risk.waistPredicted ? '（预测）' : ''}` : '未填写',
+        systolicPressure: risk.bp !== null ? `${risk.bp}${risk.bpPredicted ? '（预测）' : ''}` : '未填写'
+      }
     }
   })
 }

@@ -18,7 +18,11 @@
  *  GET  /api/user/info      请求 {}  （携带 token）
  *                           响应 { code:200, data: { userInfo } }
  * ---------------------------------------------------
- * userInfo 建议字段：id, username, nickname, avatar, desc, createdAt
+ * userInfo 建议字段：id, username, nickname, avatar, desc, createdAt, healthInfo
+ * healthInfo（糖尿病预测信息）建议字段：
+ *   disease        当前是否糖尿病（'是' | '否'）
+ *   diabetesType  糖尿病类型（1型糖尿病 / 2型糖尿病 / 妊娠糖尿病 / 其他类型）
+ *   sex / age / height / weight / familyHistory / waistline / systolicPressure / isPregnancy
  */
 import request from './request'
 import { getToken, setToken, setUser, getUser, clearAuth } from '@/utils/storage'
@@ -156,8 +160,8 @@ function sanitizeUser(user) {
   return safe
 }
 
-/** Mock：更新当前用户资料（nickname/avatar/desc，字段为 undefined 时不修改） */
-function mockUpdateUserInfo({ nickname, avatar, desc }) {
+/** Mock：更新当前用户资料（nickname/avatar/desc/healthInfo，字段为 undefined 时不修改） */
+function mockUpdateUserInfo({ nickname, avatar, desc, healthInfo }) {
   return mockDelay().then(() => {
     const users = getMockUsers()
     const current = getUser() || {}
@@ -166,6 +170,9 @@ function mockUpdateUserInfo({ nickname, avatar, desc }) {
     if (nickname !== undefined && nickname !== null) user.nickname = nickname
     if (avatar !== undefined && avatar !== null) user.avatar = avatar
     if (desc !== undefined && desc !== null) user.desc = desc
+    if (healthInfo !== undefined && healthInfo !== null) {
+      user.healthInfo = { ...(user.healthInfo || {}), ...healthInfo }
+    }
     saveMockUsers(users)
     const userInfo = sanitizeUser(user)
     setUser(userInfo)
@@ -220,7 +227,7 @@ export function getUserInfo() {
   return request.get('/user/info')
 }
 
-/** 更新个人信息（真实模式 PUT /user/info，body: { nickname?, avatar?, desc? }） */
+/** 更新个人信息（真实模式 PUT /user/info，body: { nickname?, avatar?, desc?, healthInfo? }） */
 export function updateUserInfo(data) {
   if (USE_MOCK) return mockUpdateUserInfo(data)
   return request.put('/user/info', data)

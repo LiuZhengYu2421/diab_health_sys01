@@ -128,6 +128,16 @@
 
 ### 3.3 糖尿病风险预测
 
+**工作流与智能体（已交付）：**
+- 工作流 DSL 文件：`DifyWorkflows/糖尿病风险预测工作流.yml`（在 Dify 平台「导入 DSL」即可重建该应用）。
+- 应用 API Key：`app-at3c96l2zlBP7eo2McFqGC6M`（**后端调用 `workflows/run` 时必须使用该 Key**，作为 `Authorization: Bearer` 携带。已实测：该 Key 对应工作流应用，`user_input_form` 含完整 10 个变量，`workflows/run` 调用成功）。
+- ⚠️ `app-uWmX61iVHt3xksU4ojBKvqly` 经实测**不是工作流应用**（`workflows/run` 返回 `not_workflow_app`，`user_input_form` 为空），**不可**用于后端风险预测调用。
+- **架构（方案 B）**：后端代理 `/api/dify/risk/predict` 接收前端请求 → 转发到 Dify 工作流 `POST /v1/workflows/run` → 解析 `data.outputs.obj = { result, disease }` → 按 `disease` 字段分支：
+  - `disease === "否"`：从 `result` 文本提取风险等级与建议，并按 3.3 节「风险评分表」自行计算 `riskScore` 与 `detail.items`（工作流不输出评分明细，由后端补齐）。
+  - `disease === "是"`：工作流 `result` 为空，**后端兜底**直接返回 `riskLevel = diabetesType`、`advice = 对应类型固定管理建议`，`riskScore = 0`。
+- **前端改造**：`RiskPredictView.vue` 已从 iframe 切换为「档案摘要 + 一键预测 + 结果卡片」三段式布局，调 `riskPredict(data)`（`src/api/dify.js`）即可，Mock 模式默认开启。
+- **工作流数据落地**：Dify 工作流内 `execute_sql` 节点会把每次预测写入 `user_risk_info` 表，`message` 字段存 AI 建议原文，管理员端可查历史记录，**后端无需再写库**。
+
 **`POST /api/dify/risk/predict`**
 
 请求体：
@@ -143,21 +153,71 @@
   "waistline": 86,
   "systolicPressure": 128,
   "isPregnancy": "否",
-  "disease": "无"
+  "disease": "否",
+  "diabetesType": ""
 }
 ```
 
-成功返回 `data`：
+说明：
+- `disease` 表示用户当前是否糖尿病：`"是"` / `"否"`（个人中心「糖尿病预测信息」中填写）。
+- `diabetesType` 仅在 `disease === "是"`（已确诊）时必填，取值：`1型糖尿病` / `2型糖尿病` / `妊娠糖尿病` / `其他类型`。
+- `disease === "是"` 时：不计算风险评分，`riskLevel` 返回糖尿病类型名称，`advice` 返回对应类型的治疗与管理建议。
+- `disease === "否"` 时：按标准风险评分表计算（见下），`riskScore` 返回 0-51 分的总分，`riskLevel` 返回风险等级，`advice` 返回建议文本。
+
+#### 糖尿病风险评分表（适用于 20 - 74 岁普通人群，总分 0 - 51，≥ 25 分为高风险）
+
+| 指标 | 评分规则 |
+| --- | --- |
+| 年龄 | 20-24→0；25-34→4；35-39→8；40-44→11；45-49→12；50-54→13；55-59→15；60-64→16；65-74→18 |
+| 体质指数 BMI | <22.0→0；22.0-23.9→1；24.0-29.9→3；≥30.0→5 |
+| 腰围 | 男 <75.0 / 女 <70.0→0；男 75.0-79.9 / 女 70.0-74.9→3；男 80.0-84.9 / 女 75.0-79.9→5；男 85.0-89.9 / 女 80.0-84.9→7；男 90.0-94.9 / 女 85.0-89.9→8；男 ≥95.0 / 女 ≥90.0→10 |
+| 收缩压 | <110→0；110-119→1；120-129→3；130-139→6；140-149→7；150-159→8；≥160→10 |
+| 糖尿病家族史（父母、同胞、子女） | 无→0；有→6 |
+| 性别 | 女→0；男→2 |
+
+> 腰围与收缩压为**选填项**：未填写时按以下规则推断：
+> - 腰围：男 `base = 0.47 × 身高`；女 `base = 0.45 × 身高`；BMI > 24 时 `腰围 = base × (1 + (BMI - 22) / 10)`
+> - 收缩压：男 BMI<24→115、24≤BMI<28→125、BMI≥28→135；女 BMI<24→110、24≤BMI<28→120、BMI≥28→130
+
+风险等级判定：`总分 ≥ 25` → 高风险；`15 ≤ 总分 < 25` → 中风险；`总分 < 15` → 低风险。
+
+成功返回 `data`（未患病场景）：
 
 ```json
 {
   "riskLevel": "中风险",
-  "riskScore": 45,
-  "advice": "（建议文本）",
+  "riskScore": 16,
+  "advice": "您的糖尿病风险评分为 16 分，风险处于中等水平。建议加强血糖监测，控制精制碳水与高糖食物摄入，坚持每周 150 分钟以上中等强度运动，将体质指数控制在 24 以下，并每年进行一次空腹血糖筛查。",
   "detail": {
+    "total": 16,
     "bmi": "23.0",
-    "waistline": "86",
-    "systolicPressure": "128"
+    "waistline": "82（预测）",
+    "systolicPressure": "125（预测）",
+    "items": [
+      { "key": "age", "label": "年龄", "value": "45 岁", "score": 12 },
+      { "key": "bmi", "label": "体质指数 (BMI)", "value": "23.0 kg/m²", "score": 1 },
+      { "key": "waist", "label": "腰围", "value": "82 cm（预测）", "score": 5 },
+      { "key": "bp", "label": "收缩压", "value": "125 mmHg（预测）", "score": 3 },
+      { "key": "family", "label": "糖尿病家族史", "value": "否", "score": 0 },
+      { "key": "sex", "label": "性别", "value": "男", "score": 2 }
+    ]
+  }
+}
+```
+
+> `detail.items` 为评分指标明细（指标 / 数值 / 分值），前端用于渲染评分明细表；未填写而由公式预测的腰围、收缩压会标注「（预测）」。`detail.total` 与 `riskScore` 一致。
+
+成功返回 `data`（已确诊场景，示例：2 型糖尿病）：
+
+```json
+{
+  "riskLevel": "2型糖尿病",
+  "riskScore": 0,
+  "advice": "2型糖尿病以生活方式干预为基础，注意控制饮食、坚持运动、规律用药，定期复查血糖并筛查心、肾、眼底等并发症。",
+  "detail": {
+    "diabetesType": "2型糖尿病",
+    "age": "45",
+    "familyHistory": "否"
   }
 }
 ```
@@ -396,6 +456,128 @@ dify:
 | 医生未配置 chatToken | `{ code: 400, message: "该医生暂未开通在线咨询" }` |
 | AI 数据助理 SQL 执行失败 | `{ code: 200, data: { message: "执行失败：...", status: "error" } }` |
 
+### 4.6 健康档案持久化（`user_risk_info` 表，个人中心「糖尿病预测信息」）
+
+> 个人中心编辑的健康档案（`healthInfo`）**不再存 `users` 表**，统一落在 `user_risk_info` 表（该表也是 Dify 工作流写预测结果的同一张表，数据天然一致）。表结构（**已加列完成**）：
+
+```sql
+CREATE TABLE `user_risk_info` (
+  `userId` int NOT NULL AUTO_INCREMENT COMMENT '用户ID（对应 users.user_id）',
+  `age` int DEFAULT NULL,
+  `sex` varchar(10) DEFAULT NULL,
+  `height` double DEFAULT NULL,
+  `weight` double DEFAULT NULL,
+  `familyHistory` text,
+  `waistline` double DEFAULT NULL,
+  `systolicPressure` double DEFAULT NULL,
+  `isPregnancy` varchar(10) DEFAULT NULL,
+  `message` text COMMENT 'Dify 工作流写入的 AI 建议原文（预测结果）',
+  `disease` text COMMENT '是否患病：是/否',
+  `diabetesType` varchar(20) DEFAULT NULL COMMENT '糖尿病类型（1型/2型/妊娠/其他）【新增】',
+  `updated_at` datetime DEFAULT NULL COMMENT '健康档案更新时间【新增】',
+  PRIMARY KEY (`userId`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+```
+
+> `diabetesType`、`updated_at` 两列为本方案新增，已执行 `ALTER TABLE` 落库；不影响 Dify 工作流（其 `INSERT ... ON DUPLICATE KEY UPDATE` 不写这两列，保持 NULL/旧值）。
+
+**前端链路（已就绪，无需改动）：**
+- `MineView.vue` 编辑 → `saveHealthInfo` → `userStore.updateHealthInfo(healthForm)` → `apiUpdateUserInfo({ healthInfo })` → **`PUT /api/user/info`**，body 携带 `healthInfo`（含 `disease/diabetesType/sex/age/height/weight/familyHistory/waistline/systolicPressure/isPregnancy`）。
+- 前端取后端返回的 `userInfo` 后**整体覆盖**本地缓存（`this.userInfo = info`）。**因此后端返回的 `userInfo` 必须携带 `healthInfo`，否则前端缓存被空对象覆盖 → 页面显示"和没编辑一样"。这是真实模式失效的直接原因。**
+- `GET /api/user/info` 同样需在返回中携带 `healthInfo`，否则刷新后档案丢失。
+
+**后端需实现（两处）：**
+
+1. `GET /api/user/info`：查询 `user_risk_info` 按 `userId` 取回档案，映射成 `healthInfo` 字段合并进 `userInfo` 返回。**无记录时返回 `healthInfo: null`**，前端按 `healthForm.disease || '未填写'` 优雅降级。
+
+```java
+// UserInfoVO 增加字段
+private Object healthInfo;   // null 或 { disease, diabetesType, sex, age, height, weight, familyHistory, waistline, systolicPressure, isPregnancy }
+
+// Service
+public UserInfoVO getInfo(Long userId) {
+    UserInfoVO vo = userMapper.selectById(userId);
+    RiskInfo row = riskInfoMapper.selectByUserId(userId);   // user_risk_info
+    if (row != null) {
+        Map<String, Object> h = new HashMap<>();
+        h.put("disease",            row.getDisease());
+        h.put("diabetesType",       row.getDiabetesType());
+        h.put("sex",                row.getSex());
+        h.put("age",                row.getAge());
+        h.put("height",             row.getHeight());
+        h.put("weight",             row.getWeight());
+        h.put("familyHistory",      row.getFamilyHistory());
+        h.put("waistline",          row.getWaistline());
+        h.put("systolicPressure",   row.getSystolicPressure());
+        h.put("isPregnancy",        row.getIsPregnancy());
+        vo.setHealthInfo(h);
+    }
+    return vo;
+}
+```
+
+2. `PUT /api/user/info`：收到 `healthInfo` 时 **UPSERT 到 `user_risk_info`**（与 Dify 工作流同一张表，`userId` 主键覆盖），并写 `updated_at`：
+
+```java
+public UserInfoVO updateInfo(Long userId, UpdateInfoReq req) {
+    UserInfoVO vo = new UserInfoVO();
+    if (req.getHealthInfo() != null) {
+        RiskInfo row = new RiskInfo();
+        row.setUserId(userId);
+        row.setDisease(req.getHealthInfo().getString("disease"));
+        row.setDiabetesType(req.getHealthInfo().getString("diabetesType"));
+        row.setSex(req.getHealthInfo().getString("sex"));
+        row.setAge(req.getHealthInfo().getInteger("age"));
+        row.setHeight(req.getHealthInfo().getDouble("height"));
+        row.setWeight(req.getHealthInfo().getDouble("weight"));
+        row.setFamilyHistory(req.getHealthInfo().getString("familyHistory"));
+        row.setWaistline(req.getHealthInfo().getDouble("waistline"));
+        row.setSystolicPressure(req.getHealthInfo().getDouble("systolicPressure"));
+        row.setIsPregnancy(req.getHealthInfo().getString("isPregnancy"));
+        row.setUpdatedAt(new Date());
+        riskInfoMapper.upsert(row);   // INSERT INTO user_risk_info (...) VALUES (...) ON DUPLICATE KEY UPDATE ...
+    }
+    return getInfo(userId);   // 返回含 healthInfo 的完整 userInfo
+}
+```
+
+3. 实体/映射器（参考 SQL）：
+
+```java
+@Data
+@TableName("user_risk_info")
+public class RiskInfo {
+    @TableId(type = IdType.INPUT)
+    private Long userId;
+    private Integer age;
+    private String sex;
+    private Double height;
+    private Double weight;
+    private String familyHistory;
+    private Double waistline;
+    private Double systolicPressure;
+    private String isPregnancy;
+    private String message;
+    private String disease;
+    private String diabetesType;
+    private Date updatedAt;
+}
+```
+
+```sql
+INSERT INTO user_risk_info (userId, age, sex, height, weight, familyHistory, waistline,
+  systolicPressure, isPregnancy, disease, diabetesType, updated_at)
+VALUES (#{userId}, #{age}, #{sex}, #{height}, #{weight}, #{familyHistory}, #{waistline},
+  #{systolicPressure}, #{isPregnancy}, #{disease}, #{diabetesType}, #{updatedAt})
+ON DUPLICATE KEY UPDATE
+  age = VALUES(age), sex = VALUES(sex), height = VALUES(height), weight = VALUES(weight),
+  familyHistory = VALUES(familyHistory), waistline = VALUES(waistline),
+  systolicPressure = VALUES(systolicPressure), isPregnancy = VALUES(isPregnancy),
+  disease = VALUES(disease), diabetesType = VALUES(diabetesType), updated_at = VALUES(updated_at)
+```
+
+> 前端 `RiskPredictView.vue` 预测时读取的 `healthInfo` 即来自本表（经 `GET /api/user/info` 返回），与 Dify 工作流的输入一致，预测后工作流又把结果写回同一行 `message`，闭环打通。
+
 ---
 
 ## 五、前端对接方式（无需改动即可生效）
@@ -429,9 +611,16 @@ dify:
 ## 六、联调 checklist
 
 - [ ] Dify 平台已创建 2 个对话型 + 6 个工作流型应用，均发布并生成 API Key
-- [ ] 后端 `application.yml` 配置 `dify.base-url` 与全局 API Key
+- [ ] 后端 `application.yml` 配置 `dify.base-url`、全局 API Key、风险预测专用 Key (`dify.risk-key`)
 - [ ] 智能助手 / AI 数据助理等全局应用的 Key 已配置，医师应用的 Key 已录入医生表
 - [ ] `VITE_USE_MOCK` 已按环境切换；前端 8 个页面逐一验证
 - [ ] AI 数据助理工作流输出严格为 `{ message, status, data }` JSON，且已做 SQL 安全校验
 - [ ] 对话型应用多轮上下文（sessionId ↔ conversation_id）正常延续
 - [ ] 错误场景（超时、未配置 chatToken、SQL 失败）提示符合约定
+- [ ] **风险预测 /api/dify/risk/predict 联调**：
+  - [ ] 未患病低风险：评分 < 15，结果 `riskLevel=低风险`、`advice` 含 AI 建议
+  - [ ] 未患病中风险：15 ≤ 评分 < 25
+  - [ ] 未患病高风险：评分 ≥ 25，**`advice` 中出现「您的糖尿病风险评分为 N 分（≥25 分）…」模板**
+  - [ ] **已确诊（disease="是"）兜底**：不调 Dify（实际上工作流也会被调用但 result 为空），`riskLevel=diabetesType`、`riskScore=0`、`advice` 返回 4 种类型对应固定管理建议
+  - [ ] 腰围/收缩压为空时由后端按公式预测，并在 `detail.waistline / detail.systolicPressure` 标注「（预测）」
+  - [ ] `user_risk_info` 表成功写入每次预测记录（`message` 字段存 AI 建议原文）

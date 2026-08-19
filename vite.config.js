@@ -17,7 +17,8 @@ export default defineConfig({
     open: false,
     // 开发环境代理：将 /api 请求转发到 SpringBoot 后端
     // 后端启动后（默认 http://localhost:8080），VITE_USE_MOCK=false 即可走真实接口
-    allowedHosts: 'all',
+    // 允许任意 Host 访问（cpolar 内网穿透域名），Vite 6 需用 true，字符串 'all' 不生效
+    allowedHosts: true,
     proxy: {
       '/api': {
         target: 'http://localhost:8080',

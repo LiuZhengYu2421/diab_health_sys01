@@ -4,92 +4,24 @@
     <div class="page-head">
       <div class="page-head-left">
         <h2 class="page-title"><i class="fa-solid fa-robot"></i> 智能助手</h2>
-        <p class="page-sub">全天候 AI 健康管家 · 随时为您解答糖尿病相关问题</p>
+        <p class="page-sub">全天候 AI 健康管家 · 基于您的健康档案自动分析糖尿病相关问题</p>
       </div>
       <div class="page-head-right">
+        <button class="new-chat-btn" :disabled="loading" @click="newChat">
+          <i class="fa-solid fa-plus"></i> 开启新对话
+        </button>
         <span class="online-badge"><i class="fa-solid fa-circle"></i> AI 在线</span>
       </div>
     </div>
 
     <div class="assistant-wrap">
-      <!-- ========== 左侧：用户健康信息（变量） ========== -->
-      <aside class="profile-panel">
-        <div class="profile-head">
-          <i class="fa-solid fa-id-card"></i>
-          <span>我的健康档案</span>
-          <button class="mini-btn" :class="{ collapsed: !showProfile }" @click="showProfile = !showProfile">
-            <i class="fa-solid" :class="showProfile ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
-          </button>
-        </div>
-        <div v-show="showProfile" class="profile-body">
-          <div class="form-row">
-            <label>性别</label>
-            <div class="seg-group">
-              <button class="seg" :class="{ on: health.sex === '男' }" @click="health.sex = '男'">男</button>
-              <button class="seg" :class="{ on: health.sex === '女' }" @click="health.sex = '女'">女</button>
-            </div>
-          </div>
-          <div class="form-row">
-            <label>年龄</label>
-            <input v-model.number="health.age" type="number" class="form-input" min="1" max="120" placeholder="请输入年龄">
-          </div>
-          <div class="form-row two-col">
-            <div>
-              <label>身高 (cm)</label>
-              <input v-model.number="health.height" type="number" class="form-input" placeholder="请输入身高 (cm)" min="0">
-            </div>
-            <div>
-              <label>体重 (kg)</label>
-              <input v-model.number="health.weight" type="number" class="form-input" placeholder="请输入体重 (kg)" min="0">
-            </div>
-          </div>
-          <div class="form-row two-col">
-            <div>
-              <label>腰围 (cm)</label>
-              <input v-model.number="health.waistline" type="number" class="form-input" placeholder="请输入腰围 (cm)，选填" min="0">
-            </div>
-            <div>
-              <label>收缩压</label>
-              <input v-model.number="health.systolicPressure" type="number" class="form-input" placeholder="请输入收缩压 (mmHg)，选填" min="0">
-            </div>
-          </div>
-          <div class="form-row">
-            <label>家族病史</label>
-            <div class="seg-group">
-              <button class="seg" :class="{ on: health.familyHistory === '是' }" @click="health.familyHistory = '是'">有</button>
-              <button class="seg" :class="{ on: health.familyHistory === '否' }" @click="health.familyHistory = '否'">无</button>
-            </div>
-          </div>
-          <div class="form-row">
-            <label>是否患病</label>
-            <div class="seg-group">
-              <button class="seg" :class="{ on: health.disease === '是' }" @click="health.disease = '是'">是</button>
-              <button class="seg" :class="{ on: health.disease === '否' }" @click="health.disease = '否'">否</button>
-            </div>
-          </div>
-          <div class="form-row">
-            <label>处于妊娠期</label>
-            <div class="seg-group">
-              <button class="seg" :class="{ on: health.isPregnancy === '是' }" @click="health.isPregnancy = '是'">是</button>
-              <button class="seg" :class="{ on: health.isPregnancy === '否' }" @click="health.isPregnancy = '否'">否</button>
-            </div>
-          </div>
-          <button class="save-btn" @click="saveProfile">
-            <i class="fa-solid fa-floppy-disk"></i> 保存档案
-          </button>
-          <p class="save-tip" v-if="savedTip">
-            <i class="fa-solid fa-check-circle"></i> {{ savedTip }}
-          </p>
-        </div>
-      </aside>
-
-      <!-- ========== 右侧：聊天区域 ========== -->
+      <!-- ========== 聊天区域 ========== -->
       <div class="chat-panel">
         <div ref="chatBody" class="chat-body">
           <div v-if="messages.length === 0" class="chat-empty">
             <div class="empty-icon"><i class="fa-solid fa-comment-dots"></i></div>
             <h3>您好，我是智能健康助手</h3>
-            <p>您可以将身体指标填写到左侧健康档案中，然后向我咨询糖尿病相关的任何问题。</p>
+            <p>我已自动读取您的个人健康档案，您可以直接向我咨询糖尿病相关的任何问题。</p>
             <div class="quick-list">
               <button class="quick-item" @click="quickAsk('糖尿病患者平时饮食应该注意什么？')">
                 <i class="fa-solid fa-utensils"></i><span>饮食怎么吃？</span>
@@ -108,7 +40,8 @@
               <i :class="msg.role === 'user' ? 'fa-solid fa-user' : 'fa-solid fa-robot'"></i>
             </div>
             <div class="msg-bubble">
-              <div class="msg-text">{{ msg.content }}</div>
+              <div v-if="msg.role === 'assistant'" class="msg-text markdown-body" v-html="renderMarkdown(msg.content)"></div>
+              <div v-else class="msg-text">{{ msg.content }}</div>
               <div class="msg-time">{{ msg.time }}</div>
             </div>
           </div>
@@ -139,27 +72,16 @@
 </template>
 
 <script setup>
-import { ref, nextTick, onMounted } from 'vue'
+import { ref, nextTick } from 'vue'
+import { getCurrentUserId } from '@/api/dify'
 import { assistantChat, isMockMode } from '@/api/dify'
 import { recordOperation } from '@/utils/operationLog'
 
-const showProfile = ref(true)
 const loading = ref(false)
 const inputText = ref('')
-const savedTip = ref('')
 
-const health = ref({
-  userId: 1,
-  age: null,
-  sex: null,
-  height: null,
-  weight: null,
-  familyHistory: null,
-  waistline: null,
-  systolicPressure: null,
-  isPregnancy: null,
-  disease: null
-})
+// 会话 ID：首次为空，后端生成后回传，多轮对话时携带以保持上下文
+const sessionId = ref('')
 
 const messages = ref([])
 const chatBody = ref(null)
@@ -174,9 +96,108 @@ async function scrollBottom() {
   if (chatBody.value) chatBody.value.scrollTop = chatBody.value.scrollHeight
 }
 
-function saveProfile() {
-  savedTip.value = '健康档案已保存'
-  setTimeout(() => { savedTip.value = '' }, 2000)
+// ========== Markdown 渲染（安全：先转义 HTML，再解析基础语法） ==========
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+function renderInline(s) {
+  return s
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|[^*])\*([^*]+)\*/g, '$1<em>$2</em>')
+    .replace(/`([^`]+)`/g, '<code class="md-inline-code">$1</code>')
+    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+}
+
+function renderMarkdown(text) {
+  if (!text) return ''
+  const safe = escapeHtml(text)
+  let out = ''
+  let listType = null
+  let listItems = []
+  let para = []
+  let inCode = false
+  let codeLines = []
+
+  const flushPara = () => {
+    if (para.length) {
+      out += `<p>${renderInline(para.join('<br>'))}</p>`
+      para = []
+    }
+  }
+  const flushList = () => {
+    if (listType) {
+      const tag = listType === 'ol' ? 'ol' : 'ul'
+      out += `<${tag}>${listItems.map((i) => `<li>${renderInline(i)}</li>`).join('')}</${tag}>`
+      listType = null
+      listItems = []
+    }
+  }
+
+  safe.split('\n').forEach((raw) => {
+    const line = raw.trim()
+    // 代码块开关 ```...```
+    if (line.startsWith('```')) {
+      if (!inCode) {
+        flushPara()
+        flushList()
+        inCode = true
+        codeLines = []
+      } else {
+        inCode = false
+        out += `<pre class="md-code"><code>${codeLines.join('\n')}</code></pre>`
+      }
+      return
+    }
+    if (inCode) {
+      codeLines.push(line)
+      return
+    }
+    if (!line) {
+      flushPara()
+      flushList()
+      return
+    }
+    // 标题 # ~ ######
+    const h = line.match(/^(#{1,6})\s+(.+)$/)
+    if (h) {
+      flushPara()
+      flushList()
+      out += `<h${h[1].length}>${renderInline(h[2])}</h${h[1].length}>`
+      return
+    }
+    // 列表 - item / * item / 1. item / 1、item
+    const ul = line.match(/^[-*]\s+(.+)$/)
+    const ol = line.match(/^\d+[.、]\s+(.+)$/)
+    if (ul || ol) {
+      flushPara()
+      const type = ol ? 'ol' : 'ul'
+      if (listType && listType !== type) flushList()
+      listType = type
+      listItems.push((ul ? ul[1] : ol[1]).trim())
+      return
+    }
+    // 普通行（相邻行合并为一段，单换行转 <br>）
+    flushList()
+    para.push(line)
+  })
+  flushPara()
+  flushList()
+  return out
+}
+
+// 开启新对话：清空消息并重置会话 ID
+function newChat() {
+  if (loading.value || messages.value.length === 0) return
+  messages.value = []
+  sessionId.value = ''
+  inputText.value = ''
+  scrollBottom()
 }
 
 function quickAsk(text) {
@@ -192,12 +213,16 @@ async function send() {
   await scrollBottom()
   loading.value = true
   try {
+    // 只传 userId + sessionId + messages：健康档案由后端按 userId 从 user_risk_info 表自动读取
     const payload = {
-      ...health.value,
+      userId: getCurrentUserId(),
+      sessionId: sessionId.value,
       messages: messages.value.map((m) => ({ role: m.role, content: m.content }))
     }
     const res = await assistantChat(payload)
     const answer = isMockMode() ? res.answer : (res.data && res.data.answer) || res.answer
+    const newSid = isMockMode() ? res.sessionId : (res.data && res.data.sessionId) || res.sessionId
+    if (newSid) sessionId.value = newSid
     messages.value.push({ role: 'assistant', content: answer, time: formatTime() })
     recordOperation({
       type: 'AI 咨询',
@@ -212,14 +237,6 @@ async function send() {
     await scrollBottom()
   }
 }
-
-onMounted(() => {
-  // 从本地缓存恢复用户档案
-  try {
-    const saved = JSON.parse(localStorage.getItem('diabetes_ai_profile') || 'null')
-    if (saved) health.value = { ...health.value, ...saved }
-  } catch (e) { /* ignore */ }
-})
 </script>
 
 <style scoped>
@@ -259,6 +276,32 @@ onMounted(() => {
   font-size: 13px;
   color: #7d8ba1;
 }
+.page-head-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.new-chat-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border: 1px solid #bfdbfe;
+  border-radius: 20px;
+  background: #fff;
+  color: #2563eb;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.new-chat-btn:hover {
+  background: #eff6ff;
+}
+.new-chat-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 .online-badge {
   display: inline-flex;
   align-items: center;
@@ -277,143 +320,9 @@ onMounted(() => {
   flex: 1;
   min-height: 0;
   display: flex;
-  gap: 18px;
 }
 
-/* ========== 左侧档案面板 ========== */
-.profile-panel {
-  width: 292px;
-  flex-shrink: 0;
-  background: #fff;
-  border-radius: 14px;
-  box-shadow: 0 2px 12px rgba(31, 45, 61, 0.06);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-.profile-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 14px 16px;
-  background: linear-gradient(135deg, #2563eb, #3b82f6);
-  color: #fff;
-  font-size: 14px;
-  font-weight: 600;
-}
-.profile-head i {
-  font-size: 15px;
-}
-.mini-btn {
-  margin-left: auto;
-  width: 24px;
-  height: 24px;
-  border: none;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.18);
-  color: #fff;
-  cursor: pointer;
-  font-size: 11px;
-  font-family: inherit;
-}
-.profile-body {
-  padding: 14px 16px 16px;
-  overflow-y: auto;
-}
-.form-row {
-  margin-bottom: 12px;
-}
-.form-row > label,
-.form-row > div > label {
-  display: block;
-  font-size: 12.5px;
-  color: #475569;
-  margin-bottom: 6px;
-}
-.two-col {
-  display: flex;
-  gap: 10px;
-}
-.two-col > div {
-  flex: 1;
-  min-width: 0;
-}
-.form-input {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 9px 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  font-family: inherit;
-  font-size: 13.5px;
-  line-height: 1.5;
-  color: #1e293b;
-  outline: none;
-  transition: border-color 0.2s;
-}
-.form-input[type="number"] {
-  -moz-appearance: textfield;
-  appearance: textfield;
-  font-variant-numeric: tabular-nums;
-}
-.form-input[type="number"]::-webkit-inner-spin-button,
-.form-input[type="number"]::-webkit-outer-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-.form-input::placeholder {
-  color: #94a3b8;
-  font-family: inherit;
-}
-.form-input:focus {
-  border-color: #2563eb;
-}
-.seg-group {
-  display: flex;
-  gap: 8px;
-}
-.seg {
-  flex: 1;
-  padding: 8px 0;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  background: #f8fafc;
-  color: #64748b;
-  font-size: 13px;
-  font-family: inherit;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.seg.on {
-  background: #eff6ff;
-  border-color: #2563eb;
-  color: #2563eb;
-  font-weight: 600;
-}
-.save-btn {
-  width: 100%;
-  margin-top: 6px;
-  padding: 9px 0;
-  border: none;
-  border-radius: 8px;
-  background: linear-gradient(135deg, #2563eb, #3b82f6);
-  color: #fff;
-  font-size: 13.5px;
-  font-family: inherit;
-  cursor: pointer;
-  transition: opacity 0.2s;
-}
-.save-btn:hover {
-  opacity: 0.9;
-}
-.save-tip {
-  margin: 8px 0 0;
-  font-size: 12px;
-  color: #16a34a;
-  text-align: center;
-}
-
-/* ========== 右侧聊天区域 ========== */
+/* ========== 聊天区域 ========== */
 .chat-panel {
   flex: 1;
   min-width: 0;
@@ -533,6 +442,56 @@ onMounted(() => {
   margin-top: 5px;
   font-size: 11px;
   color: #94a3b8;
+}
+
+/* ========== AI 回答 Markdown 渲染样式 ========== */
+.msg-bubble :deep(.markdown-body p) {
+  margin: 4px 0;
+}
+.msg-bubble :deep(.markdown-body h3),
+.msg-bubble :deep(.markdown-body h4) {
+  margin: 8px 0 4px;
+  font-size: 15px;
+  color: #1e3a5f;
+}
+.msg-bubble :deep(.markdown-body h5),
+.msg-bubble :deep(.markdown-body h6) {
+  margin: 6px 0 3px;
+  font-size: 14px;
+  color: #1e3a5f;
+}
+.msg-bubble :deep(.markdown-body ul),
+.msg-bubble :deep(.markdown-body ol) {
+  margin: 4px 0;
+  padding-left: 20px;
+}
+.msg-bubble :deep(.markdown-body li) {
+  margin: 2px 0;
+}
+.msg-bubble :deep(.markdown-body strong) {
+  color: #1e3a5f;
+}
+.msg-bubble :deep(.markdown-body a) {
+  color: #2563eb;
+}
+.msg-bubble :deep(.md-code) {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-x: auto;
+  margin: 6px 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.msg-bubble :deep(.md-inline-code) {
+  background: #eef2f7;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 12.5px;
+  color: #b91c1c;
 }
 
 .typing {

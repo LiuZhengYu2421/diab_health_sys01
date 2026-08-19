@@ -48,6 +48,143 @@
           <button class="primary-btn" @click="saveProfile"><i class="fa-solid fa-check"></i> 保存修改</button>
         </div>
 
+        <!-- 糖尿病预测信息 -->
+        <div class="card-head health-head">
+          <div class="card-title"><i class="fa-solid fa-heart-pulse"></i> 健康档案</div>
+          <button class="ghost-btn" @click="healthEditing = !healthEditing">
+            <i :class="healthEditing ? 'fa-solid fa-xmark' : 'fa-solid fa-pen'"></i>{{ healthEditing ? '取消' : '编辑' }}
+          </button>
+        </div>
+
+        <!-- 查看模式 -->
+        <div v-if="!healthEditing" class="health-summary">
+          <div class="health-grid">
+            <div class="health-item">
+              <span class="label">当前是否糖尿病</span>
+              <span class="value">{{ healthForm.disease || '未填写' }}</span>
+            </div>
+            <div v-if="healthForm.disease === '是'" class="health-item">
+              <span class="label">糖尿病类型</span>
+              <span class="value">{{ healthForm.diabetesType || '—' }}</span>
+            </div>
+            <div class="health-item">
+              <span class="label">性别</span>
+              <span class="value">{{ healthForm.sex || '—' }}</span>
+            </div>
+            <div class="health-item">
+              <span class="label">年龄</span>
+              <span class="value">{{ healthForm.age ? healthForm.age + ' 岁' : '—' }}</span>
+            </div>
+            <div class="health-item">
+              <span class="label">身高 / 体重</span>
+              <span class="value">{{ healthForm.height ? healthForm.height + ' cm' : '—' }} / {{ healthForm.weight ? healthForm.weight + ' kg' : '—' }}</span>
+            </div>
+            <div class="health-item">
+              <span class="label">家族病史</span>
+              <span class="value">{{ healthForm.familyHistory || '未填写' }}</span>
+            </div>
+            <div class="health-item">
+              <span class="label">腰围</span>
+              <span class="value">
+                {{ healthForm.waistline ? healthForm.waistline + ' cm' : (waistPredicted ? predictedWaist + ' cm' : '—') }}
+                <em v-if="waistPredicted" class="predicted-tag">（预测）</em>
+              </span>
+            </div>
+            <div class="health-item">
+              <span class="label">收缩压</span>
+              <span class="value">
+                {{ healthForm.systolicPressure ? healthForm.systolicPressure + ' mmHg' : (bpPredicted ? predictedBp + ' mmHg' : '—') }}
+                <em v-if="bpPredicted" class="predicted-tag">（预测）</em>
+              </span>
+            </div>
+            <div class="health-item">
+              <span class="label">是否处于妊娠期</span>
+              <span class="value">{{ healthForm.isPregnancy || '—' }}</span>
+            </div>
+          </div>
+
+          <!-- 风险评估建议 -->
+          <div v-if="healthRisk.text" class="health-risk" :class="healthRisk.type">
+            <div class="risk-head">
+              <i :class="healthRisk.type === 'diag' ? 'fa-solid fa-stethoscope' : healthRisk.type === 'risk' ? 'fa-solid fa-gauge-high' : 'fa-solid fa-circle-info'"></i>
+              <span v-if="healthRisk.title" class="risk-title">{{ healthRisk.title }}</span>
+              <span v-if="healthRisk.score !== undefined" class="risk-score">风险评分 {{ healthRisk.score }}</span>
+            </div>
+            <p class="risk-text">{{ healthRisk.text }}</p>
+          </div>
+
+          <button class="primary-btn health-go-btn" @click="goRiskPredict"><i class="fa-solid fa-wand-magic-sparkles"></i> 去智能风险预测</button>
+        </div>
+
+        <!-- 编辑模式 -->
+        <div v-else class="health-edit">
+          <div class="health-edit-grid">
+            <div class="health-field">
+              <label>当前是否糖尿病</label>
+              <div class="seg-group">
+                <button class="seg" :class="{ on: healthForm.disease === '是' }" @click="healthForm.disease = '是'; healthForm.diabetesType = ''">是</button>
+                <button class="seg" :class="{ on: healthForm.disease === '否' }" @click="healthForm.disease = '否'; healthForm.diabetesType = ''">否</button>
+              </div>
+            </div>
+            <div v-if="healthForm.disease === '是'" class="health-field full">
+              <label>糖尿病类型</label>
+              <div class="seg-group">
+                <button v-for="t in diabetesTypes" :key="t" class="seg" :class="{ on: healthForm.diabetesType === t }" @click="healthForm.diabetesType = t">{{ t }}</button>
+              </div>
+            </div>
+            <div class="health-field">
+              <label>性别</label>
+              <div class="seg-group">
+                <button class="seg" :class="{ on: healthForm.sex === '男' }" @click="healthForm.sex = '男'">男</button>
+                <button class="seg" :class="{ on: healthForm.sex === '女' }" @click="healthForm.sex = '女'">女</button>
+              </div>
+            </div>
+            <div class="health-field">
+              <label>年龄</label>
+              <input v-model.number="healthForm.age" type="number" class="text-input" min="1" max="120" placeholder="请输入年龄">
+            </div>
+            <div class="health-field">
+              <label>身高 (cm)</label>
+              <input v-model.number="healthForm.height" type="number" class="text-input" min="80" max="250" placeholder="e.g. 170">
+            </div>
+            <div class="health-field">
+              <label>体重 (kg)</label>
+              <input v-model.number="healthForm.weight" type="number" class="text-input" min="20" max="300" placeholder="e.g. 65">
+            </div>
+            <div class="health-field">
+              <label>家族病史</label>
+              <div class="seg-group">
+                <button class="seg" :class="{ on: healthForm.familyHistory === '是' }" @click="healthForm.familyHistory = '是'">有</button>
+                <button class="seg" :class="{ on: healthForm.familyHistory === '否' }" @click="healthForm.familyHistory = '否'">无</button>
+              </div>
+            </div>
+            <div class="health-field">
+              <label>腰围 (cm)</label>
+              <div class="predict-input">
+                <input v-model.number="healthForm.waistline" type="number" class="text-input" min="40" max="200" :placeholder="waistPredicted ? '预测约 ' + predictedWaist + ' cm' : '选填'">
+                <span v-if="waistPredicted" class="predicted-tag">（预测）</span>
+              </div>
+            </div>
+            <div class="health-field">
+              <label>收缩压 (mmHg)</label>
+              <div class="predict-input">
+                <input v-model.number="healthForm.systolicPressure" type="number" class="text-input" min="60" max="250" :placeholder="bpPredicted ? '预测约 ' + predictedBp + ' mmHg' : '选填'">
+                <span v-if="bpPredicted" class="predicted-tag">（预测）</span>
+              </div>
+            </div>
+            <div class="health-field">
+              <label>是否处于妊娠期</label>
+              <div class="seg-group">
+                <button class="seg" :class="{ on: healthForm.isPregnancy === '是' }" @click="healthForm.isPregnancy = '是'">是</button>
+                <button class="seg" :class="{ on: healthForm.isPregnancy === '否' }" @click="healthForm.isPregnancy = '否'">否</button>
+              </div>
+            </div>
+          </div>
+          <div class="card-actions">
+            <button class="primary-btn" @click="saveHealthInfo"><i class="fa-solid fa-check"></i> 保存预测信息</button>
+          </div>
+        </div>
+
         <div class="card-head pwd-head">
           <div class="card-title"><i class="fa-solid fa-key"></i> 修改密码</div>
         </div>
@@ -312,6 +449,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { showFloatingAlert } from '@/utils/alert'
 import { lifeScheme, healthTags, isMockMode } from '@/api/dify'
+import { calcDiabetesRisk, predictWaist, predictBp, calcBmi } from '@/utils/diabetesRisk'
 import { getPunchStats, getPunchRecords, createPunchRecord, deletePunchRecord } from '@/api/punchIn'
 import { getConsultFavorites, removeConsultFavorite } from '@/utils/consultFavorites'
 
@@ -366,6 +504,125 @@ async function saveProfile() {
     showFloatingAlert(e.message || '保存失败，请稍后重试', 'error')
   }
 }
+
+/* ========== 糖尿病预测信息 ========== */
+const diabetesTypes = ['1型糖尿病', '2型糖尿病', '妊娠糖尿病', '其他类型']
+const healthEditing = ref(false)
+const healthForm = ref({
+  disease: '',
+  diabetesType: '',
+  sex: '',
+  age: null,
+  height: null,
+  weight: null,
+  familyHistory: '',
+  waistline: null,
+  systolicPressure: null,
+  isPregnancy: ''
+})
+
+watch(
+  () => userStore.userInfo,
+  (info) => {
+    const h = info.healthInfo || {}
+    healthForm.value = {
+      disease: h.disease || '',
+      diabetesType: h.diabetesType || '',
+      sex: h.sex || '',
+      age: h.age ?? null,
+      height: h.height ?? null,
+      weight: h.weight ?? null,
+      familyHistory: h.familyHistory || '',
+      waistline: h.waistline ?? null,
+      systolicPressure: h.systolicPressure ?? null,
+      isPregnancy: h.isPregnancy || ''
+    }
+    healthEditing.value = false
+  },
+  { immediate: true }
+)
+
+async function saveHealthInfo() {
+  const f = healthForm.value
+  if (!f.disease) {
+    showFloatingAlert('请选择当前是否为糖尿病', 'warning')
+    return
+  }
+  if (f.disease === '是' && !f.diabetesType) {
+    showFloatingAlert('请选择糖尿病类型', 'warning')
+    return
+  }
+  if (!f.sex) {
+    showFloatingAlert('请选择性别', 'warning')
+    return
+  }
+  if (!f.age || f.age < 1) {
+    showFloatingAlert('请填写正确的年龄', 'warning')
+    return
+  }
+  if (!f.height || f.height < 80) {
+    showFloatingAlert('请填写正确的身高', 'warning')
+    return
+  }
+  if (!f.weight || f.weight < 20) {
+    showFloatingAlert('请填写正确的体重', 'warning')
+    return
+  }
+  if (f.waistline && (f.waistline < 40 || f.waistline > 200)) {
+    showFloatingAlert('请填写正确的腰围', 'warning')
+    return
+  }
+  if (f.systolicPressure && (f.systolicPressure < 60 || f.systolicPressure > 250)) {
+    showFloatingAlert('请填写正确的收缩压', 'warning')
+    return
+  }
+  try {
+    await userStore.updateHealthInfo({ ...f })
+    showFloatingAlert('糖尿病预测信息已保存', 'success')
+    healthEditing.value = false
+  } catch (e) {
+    showFloatingAlert(e.message || '保存失败，请稍后重试', 'error')
+  }
+}
+
+function goRiskPredict() {
+  router.push('/risk-predict')
+}
+
+// 腰围/收缩压预测值（未填写时按身高体重性别推断，用于回显标注）
+const predictedWaist = computed(() => {
+  const f = healthForm.value
+  if (!f.sex || !f.height) return null
+  return predictWaist(f.sex, f.height, calcBmi(f.height, f.weight))
+})
+const predictedBp = computed(() => {
+  const f = healthForm.value
+  if (!f.sex || !f.height || !f.weight) return null
+  return predictBp(f.sex, calcBmi(f.height, f.weight))
+})
+const waistPredicted = computed(() => !healthForm.value.waistline && predictedWaist.value !== null)
+const bpPredicted = computed(() => !healthForm.value.systolicPressure && predictedBp.value !== null)
+
+// 风险评估建议（根据已填写的预测信息实时计算，用于查看模式展示）
+const healthRisk = computed(() => {
+  const f = healthForm.value
+  if (f.disease === '是') {
+    return {
+      type: 'diag',
+      title: '已确诊',
+      text: f.diabetesType ? `您已确诊为${f.diabetesType}，请遵医嘱规律治疗、保持健康生活方式，并定期复查随访。` : '您已填写确诊糖尿病，请选择糖尿病类型以获取更精准的建议。'
+    }
+  }
+  if (f.disease === '否') {
+    if (!f.sex || !f.age || !f.height || !f.weight) {
+      return { type: 'empty', title: '', text: '请完善性别、年龄、身高、体重等信息后，系统将为您评估糖尿病风险。' }
+    }
+    const risk = calcDiabetesRisk(f)
+    const levelText = risk.level === '高风险' ? '高风险' : risk.level === '中风险' ? '中风险' : '低风险'
+    return { type: 'risk', level: risk.level, score: risk.total, title: `${levelText}风险`, text: risk.advice }
+  }
+  return { type: 'empty', title: '', text: '请先填写「当前是否糖尿病」，保存后将在此显示您的风险评估建议。' }
+})
 
 const pwdForm = ref({ oldPassword: '', newPassword: '', confirmPassword: '' })
 
@@ -651,6 +908,86 @@ const openFaq = ref(0)
 .pwd-head { margin-top: 24px; }
 .pwd-form { display: flex; gap: 10px; flex-wrap: wrap; }
 .pwd-form .text-input { flex: 1; min-width: 160px; }
+
+/* 糖尿病预测信息 */
+.health-head { margin-top: 24px; }
+.health-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px 20px; }
+.health-item { display: flex; flex-direction: column; gap: 5px; }
+.health-item .label { font-size: 12px; color: #94a3b8; }
+.health-item .value { font-size: 13.5px; color: #1e293b; }
+.health-go-btn { margin-top: 16px; }
+
+.health-risk {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+.health-risk.risk {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+}
+.health-risk.diag {
+  background: #f5f3ff;
+  border: 1px solid #ddd6fe;
+}
+.health-risk.empty {
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+}
+.risk-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.risk-head i {
+  font-size: 14px;
+}
+.health-risk.risk .risk-head i,
+.health-risk.risk .risk-title { color: #2563eb; }
+.health-risk.diag .risk-head i,
+.health-risk.diag .risk-title { color: #7c3aed; }
+.health-risk.empty .risk-head i,
+.health-risk.empty .risk-title { color: #64748b; }
+.risk-title {
+  font-weight: 600;
+  font-size: 14px;
+}
+.risk-score {
+  margin-left: auto;
+  font-weight: 700;
+  font-size: 14px;
+  color: #1e3a5f;
+}
+.risk-text {
+  margin: 0;
+  line-height: 1.7;
+  color: #475569;
+}
+.health-edit-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px 18px; }
+.health-field { display: flex; flex-direction: column; gap: 6px; }
+.health-field.full { grid-column: 1 / -1; }
+.health-field label { font-size: 12.5px; color: #475569; }
+.health-field .seg-group { display: flex; gap: 8px; }
+.health-field .seg {
+  flex: 1; padding: 8px 0; border: 1px solid #e2e8f0; border-radius: 8px;
+  background: #f8fafc; color: #64748b; font-size: 13px; cursor: pointer; transition: all 0.2s;
+}
+.health-field .seg.on { background: #eff6ff; border-color: #2563eb; color: #2563eb; font-weight: 600; }
+
+.predict-input { display: flex; align-items: center; gap: 6px; }
+.predict-input .text-input { flex: 1; min-width: 0; }
+.predicted-tag {
+  flex-shrink: 0;
+  font-style: normal;
+  font-size: 11px;
+  color: #7c3aed;
+  background: #ede9fe;
+  padding: 2px 6px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
 
 /* 我的方案 */
 .scheme-tabs { display: flex; gap: 8px; margin-bottom: 16px; }

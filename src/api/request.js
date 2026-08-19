@@ -26,12 +26,15 @@ const service = axios.create({
   timeout: 15000
 })
 
-// 请求拦截器：附加 token
+// 请求拦截器：附加 token；Dify/AI 类接口响应较慢（LLM 生成耗时），单独放宽超时
 service.interceptors.request.use(
   (config) => {
     const token = getToken()
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
+    }
+    if (config.url && /^\/dify\//.test(config.url)) {
+      config.timeout = 90000
     }
     return config
   },
