@@ -881,4 +881,49 @@ onMounted(async () => {
   font-size: 12px;
   color: #94a3b8;
 }
+
+/* ========== 移动端适配 ========== */
+@media (max-width: 768px) {
+  .consult-page {
+    padding: 16px 14px;
+    overflow-y: auto;
+  }
+  .page-head {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 480px) {
+  .consult-page {
+    padding: 14px 12px;
+    border-radius: 14px;
+  }
+  .page-title {
+    font-size: 17px;
+  }
+  .generate-btn {
+    width: 100%;
+    text-align: center;
+    justify-content: center;
+  }
+  .consult-card {
+    padding: 14px;
+  }
+  .card-title {
+    font-size: 15px;
+  }
+  .detail-topbar {
+    padding: 12px 14px;
+  }
+  .detail-scroll {
+    padding: 0 14px 20px;
+  }
+  .detail-title {
+    font-size: 17px;
+  }
+  .back-btn {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+}
 </style>

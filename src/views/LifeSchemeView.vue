@@ -736,4 +736,37 @@ function markDone(item) {
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+/* ========== 移动端适配 ========== */
+@media (max-width: 480px) {
+  .dialog-panel {
+    border-radius: 12px;
+  }
+  .dialog-head {
+    padding: 14px 16px;
+  }
+  .dialog-body {
+    padding: 16px;
+  }
+  .dialog-foot {
+    padding: 12px 16px;
+    gap: 10px;
+  }
+  .form-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .form-item input,
+  .form-item select,
+  .advice-input {
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+  .cancel-btn,
+  .generate-btn {
+    flex: 1;
+    padding: 10px 12px;
+    text-align: center;
+  }
+}
 </style>

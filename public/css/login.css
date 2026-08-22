@@ -399,3 +399,37 @@ body.login-page {
         min-height: auto;
     }
 }
+
+/* ================= 移动端适配 ================= */
+@media (max-width: 480px) {
+    body.login-page {
+        padding: 12px;
+    }
+    .auth-container {
+        border-radius: 18px;
+    }
+    .form-panel {
+        padding: 28px 20px;
+    }
+    .auth-title {
+        font-size: 20px;
+        margin-bottom: 22px;
+    }
+    .tab-nav {
+        margin-bottom: 26px;
+    }
+    .form-group {
+        margin-bottom: 16px;
+    }
+    .input-wrap input {
+        height: 44px;
+        font-size: 14px;
+    }
+    .submit-btn {
+        height: 46px;
+        font-size: 15px;
+    }
+    .auth-card {
+        max-width: 100%;
+    }
+}

@@ -551,4 +551,66 @@ async function loadAnalyze() {
   margin-top: 4px;
   font-size: 12px;
 }
+
+/* ========== 移动端适配 ========== */
+@media (max-width: 768px) {
+  .analyze-wrap {
+    flex-direction: column;
+    overflow-y: auto;
+    gap: 12px;
+  }
+  .record-panel {
+    width: 100%;
+    max-height: none;
+    overflow-y: visible;
+    padding: 16px;
+  }
+  .analysis-panel {
+    padding: 16px;
+    overflow-y: visible;
+  }
+  .page-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .page-title {
+    font-size: 17px;
+  }
+  .mock-badge {
+    font-size: 11px;
+    padding: 5px 11px;
+  }
+  .record-panel,
+  .analysis-panel {
+    padding: 14px;
+    border-radius: 12px;
+  }
+  .week-stats {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+    padding: 12px 6px;
+  }
+  .stat-num {
+    font-size: 15px;
+  }
+  .stat-label {
+    font-size: 10px;
+  }
+  .plan-tip {
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+  .analyze-empty {
+    padding: 40px 16px;
+  }
+  .empty-icon {
+    width: 60px;
+    height: 60px;
+    font-size: 26px;
+  }
+}
 </style>

@@ -320,3 +320,68 @@
   padding: 14px 20px;
   border-top: 1px solid #eef2f7;
 }
+
+/* ============ 移动端适配 ============ */
+@media (max-width: 768px) {
+  .panel-table {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .table {
+    min-width: 720px;
+  }
+  .panel-toolbar {
+    padding: 12px;
+  }
+  .search-box {
+    width: 100%;
+  }
+  .search-box input {
+    flex: 1;
+    min-width: 0;
+    width: auto;
+  }
+  .pager {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+  }
+  .modal {
+    width: 100%;
+    max-width: 94vw;
+  }
+  .cell-ellipsis {
+    max-width: 160px;
+  }
+}
+
+@media (max-width: 480px) {
+  .panel-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .search-box {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .search-box > i {
+    display: none;
+  }
+  .search-box .dept-input {
+    width: 100%;
+  }
+  .btn {
+    height: 38px;
+    font-size: 13px;
+  }
+  .modal-head,
+  .modal-body,
+  .modal-foot {
+    padding: 14px 16px;
+  }
+  .pager-info {
+    width: 100%;
+    text-align: center;
+  }
+}

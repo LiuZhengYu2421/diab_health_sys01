@@ -769,4 +769,61 @@ onMounted(initProfile)
   color: #334155;
   white-space: pre-wrap;
 }
+
+/* ========== 移动端适配 ========== */
+@media (max-width: 768px) {
+  .risk-page {
+    padding: 16px 14px;
+    overflow-y: auto;
+  }
+  .page-head {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .profile-tip {
+    align-items: flex-start;
+  }
+  .profile-tip-text {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .risk-page {
+    padding: 14px 12px;
+    border-radius: 14px;
+  }
+  .page-title {
+    font-size: 17px;
+  }
+  .ai-badge {
+    padding: 5px 12px;
+    font-size: 12px;
+  }
+  .summary-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .s-value {
+    font-size: 12.5px;
+  }
+  .start-btn {
+    width: 100%;
+    padding: 12px;
+    font-size: 14px;
+  }
+  .result-card {
+    padding: 14px;
+  }
+  .risk-ring {
+    width: 110px;
+    height: 110px;
+  }
+  .risk-score {
+    font-size: 26px;
+  }
+  .detail-items {
+    padding: 12px;
+  }
+}
 </style>

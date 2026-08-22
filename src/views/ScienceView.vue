@@ -94,4 +94,10 @@ function openArticle(art) {
   min-height: 100%;
   border-radius: 18px;
 }
+
+@media (max-width: 480px) {
+  .content-page {
+    border-radius: 14px;
+  }
+}
 </style>

@@ -61,4 +61,18 @@ const title = computed(() => route.meta.title || '页面')
   transform: translateY(-2px);
   box-shadow: 0 8px 20px rgba(37, 99, 235, 0.4);
 }
+
+@media (max-width: 480px) {
+  .placeholder-content {
+    padding: 30px 20px;
+  }
+  .placeholder-icon {
+    width: 64px;
+    height: 64px;
+    font-size: 28px;
+  }
+  .placeholder-title {
+    font-size: 18px;
+  }
+}
 </style>

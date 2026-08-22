@@ -436,3 +436,48 @@ body {
         flex-direction: column;
     }
 }
+
+/* ================= 超小屏移动端适配 (480px 以下) ================= */
+@media (max-width: 480px) {
+    .content-page {
+        padding: 12px;
+        gap: 14px;
+    }
+    .doctor-grid {
+        grid-template-columns: 1fr;
+    }
+    .doctor-card {
+        padding: 18px 14px;
+    }
+    .team-banner {
+        padding: 20px 16px;
+    }
+    .team-banner-text h3 {
+        font-size: 17px;
+    }
+    .team-banner-stats {
+        gap: 20px;
+        flex-wrap: wrap;
+    }
+    .banner-stat-num {
+        font-size: 20px;
+    }
+    .article-img {
+        height: 140px;
+    }
+    .article-body h4 {
+        font-size: 15px;
+    }
+    .cat-pill {
+        padding: 5px 14px;
+        font-size: 12px;
+    }
+    .page-btn {
+        min-width: 32px;
+        height: 32px;
+        font-size: 13px;
+    }
+    .page-head h2 {
+        font-size: 18px;
+    }
+}

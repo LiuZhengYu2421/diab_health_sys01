@@ -40,16 +40,14 @@
               <i :class="msg.role === 'user' ? 'fa-solid fa-user' : 'fa-solid fa-robot'"></i>
             </div>
             <div class="msg-bubble">
-              <div v-if="msg.role === 'assistant'" class="msg-text markdown-body" v-html="renderMarkdown(msg.content)"></div>
+              <!-- AI 回答：内容为空（流式生成中）显示打字动画，否则渲染 Markdown -->
+              <div v-if="msg.role === 'assistant' && !msg.content" class="typing-inline">
+                <span class="typing-label">正在思考您的问题请稍后....</span>
+                <i class="fa-solid fa-circle-notch fa-spin"></i>
+              </div>
+              <div v-else-if="msg.role === 'assistant'" class="msg-text markdown-body" v-html="renderMarkdown(msg.content)"></div>
               <div v-else class="msg-text">{{ msg.content }}</div>
               <div class="msg-time">{{ msg.time }}</div>
-            </div>
-          </div>
-
-          <div v-if="loading" class="msg-row assistant">
-            <div class="msg-avatar"><i class="fa-solid fa-robot"></i></div>
-            <div class="msg-bubble typing">
-              <span></span><span></span><span></span>
             </div>
           </div>
         </div>
@@ -73,8 +71,7 @@
 
 <script setup>
 import { ref, nextTick } from 'vue'
-import { getCurrentUserId } from '@/api/dify'
-import { assistantChat, isMockMode } from '@/api/dify'
+import { getCurrentUserId, assistantChatStream } from '@/api/dify'
 import { recordOperation } from '@/utils/operationLog'
 
 const loading = ref(false)
@@ -212,6 +209,15 @@ async function send() {
   messages.value.push({ role: 'user', content: text, time: formatTime() })
   await scrollBottom()
   loading.value = true
+
+  // 预填 AI 回复气泡（内容为空时显示"思考您的问题"动画，流式填充内容实现打字机效果）
+  const aiMsg = { role: 'assistant', content: '', time: formatTime() }
+  messages.value.push(aiMsg)
+  await scrollBottom()
+
+  // SSE 流式累积内容
+  let streamedText = ''
+
   try {
     // 只传 userId + sessionId + messages：健康档案由后端按 userId 从 user_risk_info 表自动读取
     const payload = {
@@ -219,19 +225,52 @@ async function send() {
       sessionId: sessionId.value,
       messages: messages.value.map((m) => ({ role: m.role, content: m.content }))
     }
-    const res = await assistantChat(payload)
-    const answer = isMockMode() ? res.answer : (res.data && res.data.answer) || res.answer
-    const newSid = isMockMode() ? res.sessionId : (res.data && res.data.sessionId) || res.sessionId
-    if (newSid) sessionId.value = newSid
-    messages.value.push({ role: 'assistant', content: answer, time: formatTime() })
-    recordOperation({
-      type: 'AI 咨询',
-      action: 'AI 智能助手咨询',
-      detail: text.length > 40 ? text.slice(0, 40) + '…' : text,
-      result: 'success'
+    await assistantChatStream(payload, {
+      // 逐块收到 AI 输出，实时追加渲染（打字机效果）
+      onChunk: (chunk, isFinal) => {
+        if (isFinal) {
+          // message_end 事件携带完整回答，整体覆盖更准确
+          streamedText = chunk || streamedText
+        } else {
+          streamedText += chunk || ''
+        }
+        aiMsg.content = streamedText
+        scrollBottom()
+      },
+      // 多轮对话会话 id（conversation_id），下一轮携带以保持上下文
+      onSessionId: (sid) => {
+        if (sid) sessionId.value = sid
+      },
+      onDone: () => {
+        // 无内容兜底
+        if (!aiMsg.content.trim()) {
+          aiMsg.content = '抱歉，AI 服务暂时不可用，请稍后重试。'
+        }
+        recordOperation({
+          type: 'AI 咨询',
+          action: 'AI 智能助手咨询',
+          detail: text.length > 40 ? text.slice(0, 40) + '…' : text,
+          result: 'success'
+        })
+      },
+      onError: (err) => {
+        // 若已输出部分内容则保留，否则显示错误提示
+        if (!aiMsg.content.trim()) {
+          aiMsg.content = '抱歉，AI 服务暂时不可用，请稍后重试。'
+        }
+        recordOperation({
+          type: 'AI 咨询',
+          action: 'AI 智能助手咨询',
+          detail: text.length > 40 ? text.slice(0, 40) + '…' : text,
+          result: 'fail'
+        })
+      }
     })
   } catch (e) {
-    messages.value.push({ role: 'assistant', content: '抱歉，AI 服务暂时不可用，请稍后重试。', time: formatTime() })
+    // assistantChatStream 内部已走 onError，这里兜底
+    if (!aiMsg.content.trim()) {
+      aiMsg.content = '抱歉，AI 服务暂时不可用，请稍后重试。'
+    }
   } finally {
     loading.value = false
     await scrollBottom()
@@ -494,23 +533,24 @@ async function send() {
   color: #b91c1c;
 }
 
-.typing {
+.typing-inline {
   display: flex;
-  gap: 5px;
   align-items: center;
+  gap: 8px;
+  color: #7d8ba1;
+  font-size: 13px;
+  min-height: 22px;
 }
-.typing span {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #93c5fd;
-  animation: bounce 1.2s infinite;
+.typing-label {
+  color: #64748b;
 }
-.typing span:nth-child(2) { animation-delay: 0.2s; }
-.typing span:nth-child(3) { animation-delay: 0.4s; }
-@keyframes bounce {
-  0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
-  30% { transform: translateY(-5px); opacity: 1; }
+.typing-inline i {
+  color: #2563eb;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .chat-input-bar {
@@ -547,5 +587,64 @@ async function send() {
 .send-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* ========== 移动端适配 ========== */
+@media (max-width: 768px) {
+  .assistant-card {
+    border-radius: 12px;
+  }
+  .assistant-head {
+    padding: 12px 14px;
+  }
+  .assistant-body {
+    padding: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .assistant-head {
+    padding: 10px 12px;
+  }
+  .assistant-title {
+    font-size: 16px;
+  }
+  .assistant-body {
+    padding: 12px;
+    gap: 12px;
+  }
+  .new-chat-btn {
+    padding: 6px 11px;
+    font-size: 12px;
+  }
+  .quick-list {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .quick-btn {
+    flex: 1 1 auto;
+    min-width: calc(50% - 4px);
+    padding: 10px 8px;
+    font-size: 12px;
+  }
+  .msg-bubble {
+    max-width: 86%;
+  }
+  .msg-bubble.user .msg-bubble-inner {
+    padding: 9px 12px;
+  }
+  .msg-bubble.ai .msg-bubble-inner {
+    padding: 9px 12px;
+  }
+  .assistant-input-row {
+    gap: 8px;
+    padding: 8px 12px;
+  }
+  .assistant-input-row input {
+    font-size: 14px;
+  }
+  .send-btn {
+    padding: 9px 14px;
+  }
 }
 </style>
