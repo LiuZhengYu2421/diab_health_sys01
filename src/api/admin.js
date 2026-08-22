@@ -20,14 +20,13 @@ const MOCK_ARTICLES_KEY = 'zhitang_mock_articles'
 
 // ========== Mock 种子数据 ==========
 
-/** 演示医生（与首页医师团队展示保持一致） */
+/** 演示医生（与 doctor_information 表 / 首页医师团队展示保持一致） */
 const DEFAULT_MOCK_DOCTORS = [
-  { infoId: 1, doctorName: '赵晓峰', department: '内分泌科', title: '主任医师', imageUrl: '/img/doc1.jpg', chatToken: 'doc-token-001', introduction: '从事内分泌与代谢病临床工作 20 余年，擅长糖尿病及其并发症的综合诊治。' },
-  { infoId: 2, doctorName: '孙雅琴', department: '内分泌科', title: '副主任医师', imageUrl: '/img/doc2.png', chatToken: 'doc-token-002', introduction: '专注妊娠期糖尿病与甲状腺疾病诊治，倡导个体化血糖管理方案。' },
-  { infoId: 3, doctorName: '周伟', department: '内分泌科', title: '主治医师', imageUrl: '/img/doc3.png', chatToken: 'doc-token-003', introduction: '擅长 2 型糖尿病早期逆转与代谢综合征管理，深耕社区健康宣教。' },
-  { infoId: 4, doctorName: '李建华', department: '心血管内科', title: '主任医师', imageUrl: '/img/doc1.jpg', chatToken: 'doc-token-004', introduction: '擅长糖尿病合并心血管疾病的综合防治，重视血脂血压协同管理。' },
-  { infoId: 5, doctorName: '王丽华', department: '营养科', title: '副主任医师', imageUrl: '/img/doc2.png', chatToken: 'doc-token-005', introduction: '专注糖尿病医学营养治疗，提供个性化饮食运动指导方案。' },
-  { infoId: 6, doctorName: '陈志明', department: '眼科', title: '主治医师', imageUrl: '/img/doc3.png', chatToken: 'doc-token-006', introduction: '擅长糖尿病视网膜病变的早期筛查与治疗，重视眼底并发症预防。' }
+  { infoId: 1, doctorName: '张明华', department: '内分泌科', title: '主任医师', imageUrl: '/img/doc1.jpg', chatToken: 'app-Ao5sIcq1RmPJifG2Cp1mlQ4w', introduction: '2型糖尿病个体化治疗' },
+  { infoId: 2, doctorName: '李秀芬', department: '内分泌科', title: '副主任医师', imageUrl: '/img/doc2.png', chatToken: 'app-Ao5sIcq1RmPJifG2Cp1mlQ4w', introduction: '糖尿病前期干预、妊娠糖尿病' },
+  { infoId: 3, doctorName: '王建国', department: '内分泌科', title: '主任医师', imageUrl: '/img/doc3.png', chatToken: 'app-Ao5sIcq1RmPJifG2Cp1mlQ4w', introduction: '1型糖尿病、糖尿病肾病' },
+  { infoId: 4, doctorName: '陈雅琴', department: '营养科', title: '副主任医师', imageUrl: '/img/doc2.png', chatToken: 'app-Ao5sIcq1RmPJifG2Cp1mlQ4w', introduction: '糖尿病医学营养治疗' },
+  { infoId: 5, doctorName: '刘志远', department: '内分泌科', title: '主治医师', imageUrl: '/img/doc3.png', chatToken: 'app-Ao5sIcq1RmPJifG2Cp1mlQ4w', introduction: '青少年糖尿病、动态血糖监测' }
 ]
 
 /** 演示文章 */
@@ -295,7 +294,7 @@ export function restoreAdminUser(id) {
   return request.put(`/admin/users/${id}/restore`)
 }
 
-/* ==================== 医生管理（接口 7~11） ==================== */
+/* ==================== 医生管理==================== */
 
 /** 医生列表（分页 + 搜索 + 科室筛选） */
 export function getDoctors(params) {

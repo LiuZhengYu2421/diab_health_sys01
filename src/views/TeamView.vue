@@ -182,20 +182,20 @@ function resetTimer() {
 }
 
 // ====== 医师（首页展示前 3 位）======
+// 与 doctor_information 表数据保持一致（医生名需精确匹配，后端按 doctor_name 查询 chat_token）
 const doctors = [
-  { id: 1, name: '赵晓峰', avatar: '/img/doc1.jpg', titleTag: '主任医师', department: '内分泌科' },
-  { id: 2, name: '孙雅琴', avatar: '/img/doc2.png', titleTag: '副主任医师', department: '内分泌科' },
-  { id: 3, name: '周伟',   avatar: '/img/doc3.png', titleTag: '主治医师',   department: '内分泌科' }
+  { id: 1, name: '张明华', avatar: '/img/doc1.jpg', titleTag: '主任医师',   department: '内分泌科' },
+  { id: 2, name: '李秀芬', avatar: '/img/doc2.png', titleTag: '副主任医师', department: '内分泌科' },
+  { id: 3, name: '王建国', avatar: '/img/doc3.png', titleTag: '主任医师',   department: '内分泌科' }
 ]
 
-// 后端不可用/无数据时降级展示的本地示例医师
+// 后端不可用/无数据时降级展示的本地医师（与 doctor_information 表数据保持一致）
 const fallbackDoctors = [
-  { id: 1, name: '赵晓峰', avatar: '/img/doc1.jpg', titleTag: '主任医师', department: '内分泌科' },
-  { id: 2, name: '孙雅琴', avatar: '/img/doc2.png', titleTag: '副主任医师', department: '内分泌科' },
-  { id: 3, name: '周伟',   avatar: '/img/doc3.png', titleTag: '主治医师',   department: '内分泌科' },
-  { id: 4, name: '李建华', avatar: '/img/doc1.jpg', titleTag: '主任医师', department: '心内科' },
-  { id: 5, name: '王丽华', avatar: '/img/doc2.png', titleTag: '副主任医师', department: '营养科' },
-  { id: 6, name: '陈志明', avatar: '/img/doc3.png', titleTag: '主治医师',   department: '眼科' }
+  { id: 1, name: '张明华', avatar: '/img/doc1.jpg', titleTag: '主任医师',   department: '内分泌科' },
+  { id: 2, name: '李秀芬', avatar: '/img/doc2.png', titleTag: '副主任医师', department: '内分泌科' },
+  { id: 3, name: '王建国', avatar: '/img/doc3.png', titleTag: '主任医师',   department: '内分泌科' },
+  { id: 4, name: '陈雅琴', avatar: '/img/doc2.png', titleTag: '副主任医师', department: '营养科' },
+  { id: 5, name: '刘志远', avatar: '/img/doc3.png', titleTag: '主治医师',   department: '内分泌科' }
 ]
 
 // ====== 全部医师弹窗 ======
@@ -979,5 +979,97 @@ onBeforeUnmount(() => {
   .banner-content h3 { font-size: 24px; letter-spacing: 2px; }
   .doctor-avatar { width: 64px; height: 64px; }
   .doc-modal-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ====== 超小屏移动端适配 ====== */
+@media (max-width: 480px) {
+  .home-header {
+    padding: 14px 12px 10px;
+    gap: 10px;
+  }
+  .home-logo {
+    font-size: 15px;
+    gap: 6px;
+  }
+  .home-logo i {
+    font-size: 17px;
+  }
+  .search-input {
+    width: 150px;
+    font-size: 12px;
+  }
+  .search-dropdown {
+    width: min(320px, calc(100vw - 24px));
+    right: 0;
+    left: auto;
+  }
+  .home-banner {
+    margin: 0 12px 14px;
+    height: 130px;
+    border-radius: 14px;
+  }
+  .banner-content h3 {
+    font-size: 20px;
+    letter-spacing: 2px;
+  }
+  .banner-content p {
+    font-size: 12px;
+  }
+  .banner-arrow {
+    width: 28px;
+    height: 28px;
+  }
+  .home-section {
+    margin: 0 12px 16px;
+  }
+  .section-title-row h3 {
+    font-size: 16px;
+  }
+  /* 医师卡片：3 列改为横向滚动 */
+  .doctor-row {
+    grid-template-columns: repeat(3, minmax(110px, 1fr));
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 4px;
+  }
+  .doctor-row::-webkit-scrollbar {
+    display: none;
+  }
+  .health-item {
+    gap: 10px;
+    padding: 11px 12px;
+    align-items: flex-start;
+  }
+  .health-cat {
+    padding: 4px 9px;
+    font-size: 10px;
+    flex-shrink: 0;
+  }
+  .health-detail-btn {
+    display: none;
+  }
+  .health-summary {
+    font-size: 11px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    white-space: normal;
+    overflow: hidden;
+  }
+  .doc-modal-mask {
+    padding: 12px;
+  }
+  .doc-modal {
+    width: 100%;
+    max-height: 85vh;
+  }
+  .doc-modal-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  .doc-modal-body {
+    padding: 12px;
+  }
 }
 </style>

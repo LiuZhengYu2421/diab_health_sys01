@@ -422,3 +422,42 @@ button {
         display: none;
     }
 }
+
+/* ================= 移动端深度适配 (768px 以下) ================= */
+@media (max-width: 768px) {
+    .nav-inner {
+        padding: 0 14px;
+        height: 56px;
+        gap: 10px;
+    }
+    .nav-links {
+        display: none;
+    }
+    .brand-logo {
+        height: 32px;
+    }
+    .brand-name {
+        font-size: 15px;
+        letter-spacing: 0.5px;
+    }
+    .main-container {
+        padding: 12px;
+        margin: 0 auto 24px;
+    }
+    .user-dropdown-menu {
+        position: fixed;
+        right: 12px;
+        top: 58px;
+        min-width: 160px;
+    }
+}
+
+/* 超小屏 */
+@media (max-width: 480px) {
+    .brand-name {
+        font-size: 14px;
+    }
+    .brand-logo {
+        height: 28px;
+    }
+}

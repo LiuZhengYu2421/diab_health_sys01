@@ -359,4 +359,57 @@ async function handleLogout() {
   overflow-y: auto;
   padding: 22px 24px;
 }
+
+/* ========== 移动端适配 ========== */
+@media (max-width: 768px) {
+  .admin-aside {
+    width: 62px;
+  }
+  .aside-brand {
+    padding: 14px 0;
+    justify-content: center;
+  }
+  .brand-text {
+    display: none;
+  }
+  .nav-item {
+    padding: 13px 0;
+    justify-content: center;
+  }
+  .nav-item i {
+    font-size: 16px;
+  }
+  .nav-item span {
+    display: none;
+  }
+  .nav-group-title {
+    justify-content: center;
+    padding: 10px 0 4px;
+  }
+  .nav-group-title span {
+    display: none;
+  }
+  .aside-foot {
+    justify-content: center;
+    padding: 14px 0;
+  }
+  .aside-foot span {
+    display: none;
+  }
+  .admin-content {
+    padding: 14px 12px;
+  }
+  .admin-topbar {
+    padding: 10px 12px;
+  }
+  .topbar-title {
+    font-size: 15px;
+  }
+  .topbar-user {
+    gap: 6px;
+  }
+  .user-name {
+    display: none;
+  }
+}
 </style>

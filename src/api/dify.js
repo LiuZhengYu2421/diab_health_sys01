@@ -9,7 +9,15 @@
  *
  * ---------------------------------------------------
  * 接口约定（请在 SpringBoot 中实现）：
- *  POST /api/dify/doctor/chat      医师咨询对话
+ *  POST /api/dify/doctor/chat-stream  医师咨询对话（SSE 流式，打字机效果）
+ *     请求 { userId, sessionId, doctorName, department, messages }
+ *     响应 text/event-stream：data: {"event":"message","answer":"增量片段","conversation_id":"..."}
+ *         data: {"event":"message_end","answer":"完整回答","conversation_id":"..."}
+ *         data: {"event":"error","message":"错误信息"}
+ *     说明：后端按 doctorName 查 doctor_information.chat_token 调 Dify 医师咨询助手，
+ *           健康档案（12 个表单变量）由后端按 userId 从 user_risk_info 表自动读取，
+ *           并追加 department / doctor_name 角色扮演变量（对应「医师咨询助手」yml）。
+ *  POST /api/dify/doctor/chat      医师咨询对话（旧阻塞接口，保留兼容）
  *     请求 { doctorName, department, userId, health, messages }
  *     响应 { code:200, data: { answer, sessionId } }
  *  POST /api/dify/punch/analyze    智能打卡分析
@@ -41,7 +49,7 @@
  * ---------------------------------------------------
  */
 import request from './request'
-import { getUser } from '@/utils/storage'
+import { getToken, getUser } from '@/utils/storage'
 import { calcDiabetesRisk } from '@/utils/diabetesRisk'
 
 // ========== 模式开关 ==========
@@ -58,19 +66,33 @@ function currentUserId() {
 }
 
 // ========== 医师咨询（Mock） ==========
-function mockDoctorChat({ doctorName, department, messages }) {
+// 按健康档案（对应「医师咨询助手」yml 的 12 个表单变量）个性化回复
+function mockDoctorChat({ doctorName, department, messages, health }) {
   return mockDelay().then(() => {
     const last = messages && messages.length ? messages[messages.length - 1].content : ''
-    const docTitle = `${doctorName || '医生'}（${department || '内分泌科'}）`
+    const docTitle = `${department || '内分泌科'}${doctorName || '医生'}`
+    const h = health || {}
+    // 档案摘要，用于开场和个性化回答
+    const age = h.age ? `${h.age}岁` : '年龄未知'
+    const sex = h.sex || '未知'
+    const bmi = h.height > 0 && h.weight > 0
+      ? (h.weight / Math.pow(h.height / 100, 2)).toFixed(1)
+      : '未知'
+    const profile = `您的档案摘要如下：性别 ${sex}，${age}，身高 ${h.height || '未填'}cm，体重 ${h.weight || '未填'}kg（BMI ${bmi}），家族史：${h.familyHistory || '未填'}，腰围 ${h.waistline || '未填'}cm，收缩压 ${h.systolicPressure || '未填'}mmHg，是否妊娠：${h.isPregnancy || '否'}，是否患病：${h.disease || '未填写'}。`
+    const hasSick = h.disease === '是' || /糖尿病/.test(h.disease || '')
     let answer
     if (!last) {
-      answer = `您好，我是${docTitle}。已收到您的基本健康档案，下面我来为您做针对性的糖尿病健康分析。请问您最近的空腹血糖大概是多少？`
-    } else if (/血糖/.test(last)) {
-      answer = '感谢您的反馈。空腹血糖是评估控糖效果的重要指标。结合您的身高体重和日常习惯，我建议您保持当前饮食结构，同时适当增加餐后散步（每次 20~30 分钟），帮助餐后血糖平稳。如有波动较大，请及时记录并复诊。'
+      answer = `您好，我是${docTitle}。已收到您的基本健康档案。\n\n${profile}\n\n请问您最近的空腹血糖大概是多少？我会结合档案数据为您做针对性的健康分析。`
+    } else if (/血糖|空腹/.test(last)) {
+      answer = hasSick
+        ? '感谢反馈。您已确诊糖尿病，血糖波动需重点关注。结合您的档案数据，我建议：\n\n1）规律监测空腹及餐后 2 小时血糖并记录；\n2）饮食保持主食定量、粗细搭配，餐后 20~30 分钟散步；\n3）按医嘱规律用药，切勿自行停药或调药；\n\n若持续高于正常区间，请及时复诊调整方案。'
+        : '感谢反馈。空腹血糖是评估控糖效果的重要指标。结合您的身高体重和日常习惯，我建议您保持当前饮食结构，同时适当增加餐后散步（每次 20~30 分钟），帮助餐后血糖平稳。如有波动较大，请及时记录并复诊。'
     } else if (/饮食|吃|餐|糖分/.test(last)) {
-      answer = '关于饮食控制，给您几点建议：1）主食定量，优选粗粮、杂豆等低 GI 食物；2）每餐保证足量蔬菜，先菜后饭；3）控制甜食、含糖饮料摄入；4）两餐之间若饥饿，可选择无糖酸奶或少量坚果。坚持两周左右，血糖会有明显改善。'
+      answer = '关于饮食控制，给您几点建议：\n1）主食定量，优选粗粮、杂豆等低 GI 食物；\n2）每餐保证足量蔬菜，先菜后饭；\n3）控制甜食、含糖饮料摄入；\n4）两餐之间若饥饿，可选择无糖酸奶或少量坚果。\n\n坚持两周左右，血糖会有明显改善。'
+    } else if (/运动/.test(last)) {
+      answer = '糖尿病运动管理建议您：\n1）每周至少 5 天、每天 30 分钟中等强度有氧运动（快走、骑车、游泳等）；\n2）餐后 20 分钟开始运动，降糖效果更佳；\n3）运动前监测血糖，低于 3.9 mmol/L 时先补充碳水再运动；\n4）从低强度循序渐进，避免过量导致低血糖。'
     } else {
-      answer = '您的问题我已记录。糖尿病管理讲究"五驾马车"：饮食、运动、监测、药物与教育。建议您每日固定时间监测血糖并打卡，平台会根据您的数据持续给出个性化建议。如有不适，请尽快线下就诊。'
+      answer = '您的问题我已记录。糖尿病管理讲究"五驾马车"：饮食、运动、监测、药物与教育。\n\n' + profile + '\n\n建议您每日固定时间监测血糖并打卡，平台会根据您的数据持续给出个性化建议。如有不适，请尽快线下就诊。'
     }
     return { answer, sessionId: 'mock-session-' + Date.now() }
   })
@@ -360,10 +382,98 @@ function mockLifeScheme(data) {
 
 // ========== 对外 API ==========
 
-/** 医师咨询对话 */
+/** 医师咨询对话（阻塞版，兼容旧调用；新页面请使用 doctorChatStream 流式版） */
 export function doctorChat(data) {
   if (USE_MOCK) return mockDoctorChat(data)
   return request.post('/dify/doctor/chat', data)
+}
+
+// ========== 医师咨询对话 - SSE 流式输出（打字机效果） ==========
+/**
+ * 医师咨询对话（SSE 流式输出）
+ * 后端接口：POST /api/dify/doctor/chat-stream
+ * 请求：{ userId, sessionId, doctorName, department, messages }
+ * 返回 text/event-stream，事件格式与 assistantChatStream 一致：
+ *   data: {"event":"message","answer":"增量片段","conversation_id":"..."}
+ *   data: {"event":"agent_message","answer":"增量片段",...}
+ *   data: {"event":"message_end","answer":"完整回答","conversation_id":"..."}
+ *   data: {"event":"error","message":"错误信息"}
+ * 说明：后端按 doctorName 查 doctor_information.chat_token 调 Dify 医师咨询助手（streaming），
+ *       健康档案（12 个表单变量）由后端按 userId 从 user_risk_info 表自动读取，
+ *       并追加 department / doctor_name 角色扮演变量（对应「医师咨询助手」yml）。
+ *
+ * @param {object} data 请求体 { userId, sessionId, doctorName, department, messages }
+ * @param {object} handlers onChunk(text, isFinal) / onSessionId(id) / onDone() / onError(err)
+ * @returns {Promise<void>} 流结束后 resolve
+ */
+export function doctorChatStream(data, handlers = {}) {
+  if (USE_MOCK) return mockDoctorChatStream(data, handlers)
+
+  const { onChunk, onSessionId, onDone, onError } = handlers
+  const token = getToken()
+  const serverUrl = import.meta.env.VITE_API_SERVER_URL || ''
+  const baseURL = serverUrl || import.meta.env.VITE_API_BASE_URL || '/api'
+  const url = `${baseURL}/dify/doctor/chat-stream`
+
+  return fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    },
+    body: JSON.stringify(data)
+  })
+    .then(async (resp) => {
+      if (!resp.ok) {
+        let msg = `HTTP ${resp.status}`
+        try {
+          const body = await resp.text()
+          if (body) msg = body
+        } catch (e) { /* 读取响应体失败时保留状态码提示 */ }
+        throw new Error(msg)
+      }
+      return readSSEStream(resp.body, { onChunk, onSessionId })
+    })
+    .then(() => {
+      if (onDone) onDone()
+    })
+    .catch((err) => {
+      if (onError) onError(err)
+      throw err
+    })
+}
+
+// Mock 模式：模拟医师打字机逐字输出（保持与真实模式相同的事件时序）
+function mockDoctorChatStream(data, handlers = {}) {
+  const { onChunk, onSessionId, onDone, onError } = handlers
+  return mockDoctorChat(data)
+    .then((res) => {
+      const text = res.answer || ''
+      const sessionId = res.sessionId || 'mock-session-' + Date.now()
+      if (onSessionId) onSessionId(sessionId)
+      if (!text) {
+        if (onDone) onDone()
+        return
+      }
+      let pos = 0
+      const step = 2
+      const timer = setInterval(() => {
+        pos += step
+        if (pos >= text.length) {
+          clearInterval(timer)
+          const tail = text.slice(text.length - step)
+          if (onChunk) onChunk(tail, false)
+          if (onChunk) onChunk(text, true)
+          if (onDone) onDone()
+        } else {
+          if (onChunk) onChunk(text.slice(pos - step, pos), false)
+        }
+      }, 30)
+    })
+    .catch((err) => {
+      if (onError) onError(err)
+      throw err
+    })
 }
 
 /** 智能打卡分析 */
@@ -382,6 +492,155 @@ export function riskPredict(data) {
 export function assistantChat(data) {
   if (USE_MOCK) return mockAssistantChat(data)
   return request.post('/dify/assistant/chat', data)
+}
+
+// ========== 智能助手对话 - SSE 流式输出（打字机效果） ==========
+/**
+ * 智能助手对话（SSE 流式输出）
+ * 后端接口：POST /api/dify/assistant/chat-stream
+ * 返回 text/event-stream，事件格式（由后端原样透传 Dify chat-messages streaming）：
+ *   data: {"event":"message","answer":"增量片段","conversation_id":"..."}
+ *   data: {"event":"agent_message","answer":"增量片段",...}
+ *   data: {"event":"message_end","answer":"完整回答","conversation_id":"..."}
+ *   data: {"event":"error","message":"错误信息"}
+ *
+ * handlers:
+ *   onChunk(text, isFinal)   输出文本片段；isFinal=true 表示最终完整回答（应整体覆盖，而非追加）
+ *   onSessionId(id)          会话 id（conversation_id 或 Mock sessionId）
+ *   onDone()                 流式结束
+ *   onError(err)             出错
+ *
+ * @returns {Promise<void>} 流结束后 resolve
+ */
+export function assistantChatStream(data, handlers = {}) {
+  if (USE_MOCK) return mockAssistantChatStream(data, handlers)
+
+  const { onChunk, onSessionId, onDone, onError } = handlers
+  const token = getToken()
+  // 与 request.js 保持一致的 URL 拼接
+  const serverUrl = import.meta.env.VITE_API_SERVER_URL || ''
+  const baseURL = serverUrl || import.meta.env.VITE_API_BASE_URL || '/api'
+  const url = `${baseURL}/dify/assistant/chat-stream`
+
+  return fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    },
+    body: JSON.stringify(data)
+  })
+    .then(async (resp) => {
+      if (!resp.ok) {
+        let msg = `HTTP ${resp.status}`
+        try {
+          const body = await resp.text()
+          if (body) msg = body
+        } catch (e) { /* 读取响应体失败时保留状态码提示 */ }
+        throw new Error(msg)
+      }
+      return readSSEStream(resp.body, { onChunk, onSessionId })
+    })
+    .then(() => {
+      if (onDone) onDone()
+    })
+    .catch((err) => {
+      if (onError) onError(err)
+      throw err
+    })
+}
+
+// 解析 SSE 流：逐行读取 `data: ` 前缀的 JSON 事件
+function readSSEStream(body, { onChunk, onSessionId } = {}) {
+  const reader = body.getReader()
+  const decoder = new TextDecoder('utf-8')
+  let buffer = ''
+
+  function handlePayload(payload) {
+    let json
+    try {
+      json = JSON.parse(payload)
+    } catch (e) {
+      // 忽略无法解析的行（如心跳、注释）
+      return
+    }
+    const event = json.event || ''
+    if (event === 'error') {
+      throw new Error(json.message || 'AI 服务异常，请稍后重试')
+    }
+    if (event === 'message' || event === 'agent_message') {
+      const text = json.answer || ''
+      if (onChunk) onChunk(text, false)
+    } else if (event === 'message_end') {
+      const full = json.answer || ''
+      // message_end 携带完整回答，整体覆盖保证内容完整准确
+      if (onChunk) onChunk(full, true)
+    }
+    const cid = json.conversation_id || json.conversationId
+    if (cid && onSessionId) onSessionId(cid)
+  }
+
+  return new Promise((resolve, reject) => {
+    function pump() {
+      reader.read().then(({ done, value }) => {
+        if (done) {
+          resolve()
+          return
+        }
+        buffer += decoder.decode(value, { stream: true })
+        let idx
+        // 按行拆分（Dify SSE 每行一个事件，空行分隔）
+        while ((idx = buffer.indexOf('\n')) >= 0) {
+          const line = buffer.slice(0, idx).trim()
+          buffer = buffer.slice(idx + 1)
+          if (!line.startsWith('data:')) continue
+          try {
+            handlePayload(line.slice(5).trim())
+          } catch (e) {
+            reject(e)
+            return
+          }
+        }
+        pump()
+      }).catch(reject)
+    }
+    pump()
+  })
+}
+
+// Mock 模式：模拟打字机逐字输出
+function mockAssistantChatStream(data, handlers = {}) {
+  const { onChunk, onSessionId, onDone, onError } = handlers
+  return mockAssistantChat(data)
+    .then((res) => {
+      const text = res.answer || ''
+      const sessionId = res.sessionId || 'mock-session-' + Date.now()
+      if (onSessionId) onSessionId(sessionId)
+      if (!text) {
+        if (onDone) onDone()
+        return
+      }
+      // 每 30ms 输出一小段，模拟打字机效果
+      let pos = 0
+      const step = 2
+      const timer = setInterval(() => {
+        pos += step
+        if (pos >= text.length) {
+          clearInterval(timer)
+          // 最后一小段作为最终完整内容整体覆盖
+          const tail = text.slice(text.length - step)
+          if (onChunk) onChunk(tail, false)
+          if (onChunk) onChunk(text, true)
+          if (onDone) onDone()
+        } else {
+          if (onChunk) onChunk(text.slice(pos - step, pos), false)
+        }
+      }, 30)
+    })
+    .catch((err) => {
+      if (onError) onError(err)
+      throw err
+    })
 }
 
 /** AI 数据助理（管理员端） */

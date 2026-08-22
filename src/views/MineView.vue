@@ -1511,4 +1511,84 @@ const openFaq = ref(0)
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* ========== 移动端适配 ========== */
+@media (max-width: 768px) {
+  .panel-card {
+    padding: 16px;
+  }
+  .pwd-form {
+    flex-direction: column;
+  }
+  .pwd-form .text-input {
+    width: 100%;
+    min-width: 0;
+  }
+  .punch-stats {
+    gap: 8px;
+  }
+  .stat-box {
+    padding: 12px 8px;
+  }
+  .stat-num {
+    font-size: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .card-head {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .profile-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px 14px;
+  }
+  .health-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px 14px;
+  }
+  .health-edit-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .advice-cards {
+    grid-template-columns: 1fr;
+  }
+  .scheme-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+  }
+  .scheme-tabs button {
+    flex-shrink: 0;
+  }
+  .scheme-item {
+    align-items: flex-start;
+  }
+  .scheme-time {
+    width: auto;
+    min-width: 80px;
+    font-size: 11px;
+  }
+  .avatar-line {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .punch-dialog-mask {
+    padding: 12px;
+  }
+  .punch-dialog {
+    width: 100%;
+    max-height: 85vh;
+  }
+  .punch-dialog-foot .cancel-btn,
+  .punch-dialog-foot .confirm-btn {
+    flex: 1;
+    text-align: center;
+  }
+  .health-risk {
+    padding: 14px;
+  }
+}
 </style>
